@@ -801,5 +801,39 @@ check("fingerprint after unload", S.fingerprint, "00000000");
   check("secrets left after signing, xpub and unloading", await survivors(true), "");
 }
 
+// --- anti-exfil: n goes in as a proprietary input field and Q comes out as one. test_core.c checks R against Q
+{
+  const KEY = Uint8Array.of(0xfc, 8, ...new TextEncoder().encode("jitsu-in"));
+  // the PSBT with n just before the end of input 0's map
+  const withNonce = (psbt, n) => {
+    let o = 5;
+    const cs = () => { const b = psbt[o++]; if (b < 0xfd) return b; const v = psbt[o] | psbt[o + 1] << 8; o += 2; return v; };
+    for (let map = 0; map < 2; map++) for (let k; (k = cs()); ) { o += k; const v = cs(); o += v; }
+    o--;
+    return Buffer.concat([psbt.subarray(0, o), Buffer.from([11, ...KEY, 1, 32]), n, psbt.subarray(o)]);
+  };
+  const n = Buffer.alloc(32, 0x5a);
+  for (const [name, schnorr] of [["own_p2wpkh_1in", false], ["own_p2tr_2in", true]]) {
+    const psbt = withNonce(readFileSync(`${root}parser/build/vectors/${name}.psbt`), n);
+    const mem = () => new Uint8Array(P.memory.buffer);
+    mem().set(psbt, P.parser_input());
+    check(`${name} with n: parses`, P.parser_parse(psbt.length, parseInt("73c5da0a", 16)), 0);
+    const nonces = mem().slice(P.parser_nonces(), P.parser_nonces() + 16 * 33);
+    ok(`${name}: n is read for input 0 only`, nonces[0] === 1 && hex(nonces.subarray(1, 33)) === hex(n) && nonces[33] === 0);
+    const plan = mem().slice(P.parser_plan(), P.parser_plan() + PLAN_SIZE);
+    const X = await Signer.load(signerWasm);
+    X.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
+    X.setPlan(plan).review();
+    const sv = X.sign(nonces);
+    ok(`${name}: Q for input 0, none for the rest`, sv[0].point?.length === 33 && sv.slice(1).every((s) => s.point === null));
+    sv.forEach((s, i) => { mem().set(s.raw, P.parser_sigs() + i * 108); mem().set(s.point ?? new Uint8Array(33), P.parser_nonce_points() + i * 33); });
+    const len = P.parser_finalize(sv.length);
+    const out = Buffer.from(mem().slice(P.parser_output(), P.parser_output() + len));
+    const keydata = schnorr ? sv[0].pubkey.subarray(1) : sv[0].pubkey;
+    ok(`${name}: the signed PSBT carries Q under the signer's key`,
+       out.includes(Buffer.concat([Buffer.from([11 + keydata.length, ...KEY, 2]), keydata, Buffer.from([33]), sv[0].point])));
+  }
+}
+
 console.log(`${pass}/${pass + fail} checks passed`);
 process.exit(fail ? 1 : 0);

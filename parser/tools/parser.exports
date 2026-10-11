@@ -4,6 +4,8 @@ memory
 parser_finalize
 parser_input
 parser_input_cap
+parser_nonce_points
+parser_nonces
 parser_output
 parser_parse
 parser_plan

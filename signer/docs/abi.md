@@ -3,7 +3,7 @@
 `signer.wasm` is the half that holds the key. It takes the `plan_t` that `parser.wasm` produced,
 re-derives the keys to check it, builds what a person should be shown, and returns signatures.
 
-It is 90,021 bytes with **zero imports**: no clock, no randomness, no filesystem, no network. The
+It is 91,585 bytes with **zero imports**: no clock, no randomness, no filesystem, no network. The
 shared conventions are in [../../docs/module-abi.md](../../docs/module-abi.md); this page is
 what is specific to this module.
 
@@ -69,6 +69,8 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_review_output() -> ptr` | `core_review_t`, 64 bytes |
 | `signer_display_output() -> ptr` | `core_display_t`, 2968 bytes |
 | `signer_sigs() -> ptr` | up to 16 x `plan_sig_t` of 108 bytes |
+| `signer_nonces() -> ptr` | anti-exfil, 16 x 33 bytes: per input `1` then the coordinator's `n`, copied from `parser_nonces()`. Used by the next `signer_sign()`, then cleared |
+| `signer_nonce_points() -> ptr` | anti-exfil, 16 x 33 bytes: `Q` for each signature, zero for one made without `n` |
 | `signer_xpub_output() -> ptr` | the account xpub, NUL-terminated, at most 120 |
 | `signer_desc_output() -> ptr` | the output descriptor, NUL-terminated, at most 180 |
 | `signer_mnemonic_output() -> ptr` | a new mnemonic, NUL-terminated, at most 256. Secret: clear it once read |
@@ -255,6 +257,23 @@ and CI requires both to equal what Bitcoin Core produces for the same PSBT
 (`make check-core-diff`). P2WSH multisig is ECDSA under OP_CHECKMULTISIG, where each cosigner signs
 on its own and RFC6979 stays safe; **it must be revisited before MuSig2 or FROST**, where BIP340 says
 deterministic nonces are unsafe.
+
+## Anti-exfil
+
+A signer that is not what it claims could pick its nonces to leak the key through the signatures it hands
+out, and deterministic nonces cannot be checked without the key. With a coordinator's 32 random bytes `n`
+for an input (`signer_nonces()`), the nonce is instead
+
+```
+q = H_q(x || m || n),  Q = qG,  k = q + H_t(Q || m || n)
+```
+
+with `H_q` and `H_t` the BIP340 tagged hashes `jitsu-in/anti-exfil/q` and `/t`, `x` the signing key (the
+tweaked one for P2TR) and `m` the sighash. The signature comes with `Q`, and the coordinator checks that R's x
+is that of `Q + H_t(Q || m || n)G` ([Delving Bitcoin](https://delvingbitcoin.org/t/non-interactive-anti-exfil-airgap-compatible/1081)).
+A signer can still grind `q` to leak a few bits per signature, so this narrows the channel rather than
+closing it. ECDSA skips the low-R grinding here: retrying is that grinding. Given the same `n`, the signature
+is still deterministic.
 
 ## What this module does not do
 

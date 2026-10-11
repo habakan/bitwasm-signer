@@ -180,12 +180,17 @@ export class Signer {
      *  parser.wasm's signature buffer.
      *
      *  One review permits exactly one signing: the module clears its own approval afterwards, so a
-     *  second call without reviewing again is refused. One approval, one signature. */
-    sign(): {
+     *  second call without reviewing again is refused. One approval, one signature.
+     *
+     *  `nonces` is the parser's nonces(): with a coordinator's n for an input, its signature comes with the
+     *  anti-exfil `point` Q the coordinator checks R against; otherwise `point` is null.
+     *  @param {Uint8Array} [nonces] */
+    sign(nonces?: Uint8Array): {
         input: number;
         pubkey: Uint8Array<ArrayBuffer>;
         sig: Uint8Array<ArrayBuffer>;
         raw: Uint8Array<ArrayBuffer>;
+        point: Uint8Array<ArrayBuffer> | null;
     }[];
     /** Which of our addresses this is: receive (chain 0) first, then change, indices 0 to count-1. Takes
      *  a bare address or a BIP21 URI; P2SH-P2WPKH, P2WPKH and P2TR only. Returns null when it is not found. */
@@ -266,6 +271,8 @@ export type SignerExports = {
     signer_review_output: () => number;
     signer_display_output: () => number;
     signer_sigs: () => number;
+    signer_nonces: () => number;
+    signer_nonce_points: () => number;
     signer_xpub_output: () => number;
     signer_desc_output: () => number;
     signer_init: (testnet: number) => number;

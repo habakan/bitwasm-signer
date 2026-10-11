@@ -36,6 +36,8 @@ before reading or writing — the module is untrusted from the host's point of v
 | `parser_sigs` | `() -> i32` | Offset of an array of 16 `plan_sig_t` the host fills in |
 | `parser_finalize` | `(n: i32) -> i32` | Insert the first `n` signatures. Returns the signed PSBT length, or `-P_ERR_SIG` |
 | `parser_output` | `() -> i32` | Offset of the signed PSBT written by `parser_finalize` |
+| `parser_nonces` | `() -> i32` | Anti-exfil: 16 x 33 bytes, per input `1` then the coordinator's `n`, for `signer_nonces` |
+| `parser_nonce_points` | `() -> i32` | Anti-exfil: 16 x 33 bytes the host fills from `signer_nonce_points`, aligned with `parser_sigs` |
 | `parser_ur_reset` | `() -> ()` | Drop decoder state before a new animated QR |
 | `parser_ur_receive` | `(len: i32) -> i32` | Feed one UR part from the input buffer. `>0`: PSBT (or bytes) length, now in the input buffer. `0`: more parts needed. `<0`: `UR_ERR_*` |
 | `parser_ur_progress` | `() -> i32` | Parts received so far (for a progress display only) |
@@ -48,6 +50,20 @@ before reading or writing — the module is untrusted from the host's point of v
 read big-endian, so `73c5da0a` is passed as `0x73c5da0a`. It is not a secret. Only [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) derivations
 carrying this fingerprint become key candidates in the plan.
 
+## Anti-exfil fields
+
+Two proprietary input fields (BIP174 `0xfc`, identifier `jitsu-in`) carry
+[non-interactive anti-exfil](https://delvingbitcoin.org/t/non-interactive-anti-exfil-airgap-compatible/1081):
+
+| key | value | written by |
+|---|---|---|
+| `fc 08 "jitsu-in" 01` | `n`, 32 random bytes | the coordinator, per input |
+| `fc 08 "jitsu-in" 02` + the signer's pubkey (33 bytes, x-only 32 for P2TR) | `Q`, 33 bytes compressed | `parser_finalize`, for each non-zero entry of `parser_nonce_points` |
+
+The coordinator checks that the x of `Q + H(Q, m, n)G` is the signature's R, with `H` the BIP340 tagged hash
+`jitsu-in/anti-exfil/t` over `Q || m || n` and `m` the sighash. Other fields with the `jitsu-in` identifier are
+ignored.
+
 ## Flow
 
 ### Signing
@@ -56,7 +72,7 @@ carrying this fingerprint become key candidates in the plan.
 write PSBT into parser_input()
 parser_parse(len, fingerprint)        -> 0
 read parser_plan()                    -> show it to the user, derive keys, sign
-write signatures into parser_sigs()
+write signatures into parser_sigs(), and their Q into parser_nonce_points()
 parser_finalize(n)                    -> signed length
 read parser_output()
 ```

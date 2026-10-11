@@ -19,6 +19,8 @@ static uint8_t in_buf[PSBT_MAX], out_buf[PSBT_OUT_MAX];
 static size_t in_len;
 static plan_t plan;
 static plan_sig_t sigs[PLAN_MAX_INPUTS];
+static uint8_t nonces[PLAN_MAX_INPUTS][33], points[PLAN_MAX_INPUTS][33];
+static const uint8_t exfil_key[10] = {0xfc, 8, 'j', 'i', 't', 's', 'u', '-', 'i', 'n'};
 static uint32_t prevtx_off[PLAN_MAX_INPUTS], prevtx_len[PLAN_MAX_INPUTS];
 static size_t in_map_end[PLAN_MAX_INPUTS];
 static int parsed;
@@ -254,6 +256,13 @@ static int parse_input(rd_t *r, unsigned idx, uint32_t fp) {
             if (e->klen != 1 || e->vlen != 32) return P_ERR_FORMAT;
             has_merkle = 1;
             break;
+        case 0xfc:
+            if (e->klen == 11 && !memcmp(e->key, exfil_key, 10) && e->key[10] == 1) {
+                if (e->vlen != 32) return P_ERR_FORMAT;
+                nonces[idx][0] = 1;
+                memcpy(nonces[idx] + 1, e->val, 32);
+            }
+            break;
         default:
             break;
         }
@@ -375,6 +384,12 @@ plan_t *EXPORT(parser_plan)(void) {
 plan_sig_t *EXPORT(parser_sigs)(void) {
     return sigs;
 }
+unsigned char *EXPORT(parser_nonces)(void) {
+    return nonces[0];
+}
+unsigned char *EXPORT(parser_nonce_points)(void) {
+    return points[0];
+}
 unsigned char *EXPORT(parser_output)(void) {
     return out_buf;
 }
@@ -395,6 +410,8 @@ int EXPORT(parser_parse)(unsigned len, unsigned fp) {
     memset(&plan, 0, sizeof(plan));
     memset(prevtx_off, 0, sizeof(prevtx_off));
     memset(prevtx_len, 0, sizeof(prevtx_len));
+    memset(nonces, 0, sizeof(nonces));
+    memset(points, 0, sizeof(points));
     if (len > PSBT_MAX) return P_ERR_LIMIT;
     in_len = len;
     if (len < 5 || memcmp(rd_take(&r, 5), magic, 5)) return P_ERR_MAGIC;
@@ -426,6 +443,7 @@ int EXPORT(parser_finalize)(unsigned n) {
         if (!is_p2tr(&in->spk) ? (s->pubkey[0] != 2 && s->pubkey[0] != 3) || s->sig_len < 9 || s->sig_len > 73
                                : s->pubkey[0] != 0 || (s->sig_len != 64 && s->sig_len != 65))
             return -P_ERR_SIG;
+        if (memcmp(points[k], (const uint8_t[33]){0}, 33) && points[k][0] != 2 && points[k][0] != 3) return -P_ERR_SIG;
         by_input[s->input] = (int)k;
     }
     for (unsigned i = 0; i < plan.n_inputs; i++) {
@@ -446,6 +464,15 @@ int EXPORT(parser_finalize)(unsigned n) {
         }
         out_buf[o++] = s->sig_len;
         memcpy(out_buf + o, s->sig, s->sig_len), o += s->sig_len;
+        if (memcmp(points[by_input[i]], (const uint8_t[33]){0}, 33)) {
+            const int p2tr = is_p2tr(&plan.inputs[i].spk);
+            out_buf[o++] = (uint8_t)(11 + 33 - p2tr);
+            memcpy(out_buf + o, exfil_key, 10), o += 10;
+            out_buf[o++] = 2;
+            memcpy(out_buf + o, s->pubkey + p2tr, 33u - p2tr), o += 33u - p2tr;
+            out_buf[o++] = 33;
+            memcpy(out_buf + o, points[by_input[i]], 33), o += 33;
+        }
     }
     memcpy(out_buf + o, in_buf + prev, in_len - prev);
     o += in_len - prev;

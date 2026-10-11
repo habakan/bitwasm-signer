@@ -31,6 +31,8 @@ const L = {
  *   signer_review_output: () => number,
  *   signer_display_output: () => number,
  *   signer_sigs: () => number,
+ *   signer_nonces: () => number,
+ *   signer_nonce_points: () => number,
  *   signer_xpub_output: () => number,
  *   signer_desc_output: () => number,
  *   signer_init: (testnet: number) => number,
@@ -396,11 +398,17 @@ export class Signer {
    *  parser.wasm's signature buffer.
    *
    *  One review permits exactly one signing: the module clears its own approval afterwards, so a
-   *  second call without reviewing again is refused. One approval, one signature. */
-  sign() {
+   *  second call without reviewing again is refused. One approval, one signature.
+   *
+   *  `nonces` is the parser's nonces(): with a coordinator's n for an input, its signature comes with the
+   *  anti-exfil `point` Q the coordinator checks R against; otherwise `point` is null.
+   *  @param {Uint8Array} [nonces] */
+  sign(nonces) {
     if (!this.#reviewed) {
       throw new Error("review() has to pass first; one approval permits one signing");
     }
+    if (nonces && nonces.length !== 16 * 33) throw new RangeError("nonces are 16 x 33 bytes, as the parser gives them");
+    if (nonces) this.#mem.set(nonces, this.#e.signer_nonces());
     const rc = this.#e.signer_sign();
     this.#reviewed = false;
     if (rc < 0) throw new SignerError("sign", -rc);
@@ -410,11 +418,13 @@ export class Signer {
       const at = base + i * L.sig.size;
       const v = this.#view(at, L.sig.size);
       const len = v.getUint8(L.sig.sigLen);
+      const point = this.#mem.slice(this.#e.signer_nonce_points() + i * 33, this.#e.signer_nonce_points() + (i + 1) * 33);
       out.push({
         input: v.getUint8(L.sig.input),
         pubkey: this.#mem.slice(at + L.sig.pubkey, at + L.sig.pubkey + 33),
         sig: this.#mem.slice(at + L.sig.sig, at + L.sig.sig + len),
         raw: this.#mem.slice(at, at + L.sig.size),
+        point: point.some((b) => b) ? point : null,
       });
     }
     return out;

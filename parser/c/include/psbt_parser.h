@@ -8,7 +8,7 @@
 #include "plan.h"
 
 #define PSBT_MAX 32768
-#define PSBT_OUT_MAX (PSBT_MAX + PLAN_MAX_INPUTS * 128)
+#define PSBT_OUT_MAX (PSBT_MAX + PLAN_MAX_INPUTS * 192) /* a signature and an anti-exfil Q per input */
 
 enum {
     P_OK = 0,
@@ -33,6 +33,11 @@ unsigned parser_prevtx_len(unsigned i);
 plan_sig_t *parser_sigs(void);
 /* Inserts the n signatures written to parser_sigs() and returns the signed PSBT length, or -P_ERR_SIG */
 int parser_finalize(unsigned n);
+/* Anti-exfil, 16 x 33 bytes each. nonces: per input, 1 then the coordinator's n from the proprietary field
+ * {0xfc, 8, "jitsu-in", 1}, for signer_nonces(). points: the host writes signer_nonce_points() here before
+ * parser_finalize(), which adds each non-zero Q as {0xfc, 8, "jitsu-in", 2, pubkey}, the x-only key for P2TR */
+unsigned char *parser_nonces(void);
+unsigned char *parser_nonce_points(void);
 unsigned char *parser_output(void);
 
 /* Animated QR: reset, then for each QR payload write it to parser_input() and call parser_ur_receive(len).

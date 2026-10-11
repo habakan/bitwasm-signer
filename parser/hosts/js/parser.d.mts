@@ -93,14 +93,17 @@ export class Parser {
         seqLen: number;
         next: () => string;
     };
+    /** Anti-exfil: per input, 1 then the coordinator's 32-byte n, 16 x 33 bytes, to hand to the signer's sign(). */
+    nonces(): Uint8Array<ArrayBuffer>;
     /**
-     * Insert signatures and return the signed PSBT.
-     * @param {{input: number, pubkey: Uint8Array, sig: Uint8Array}[]} sigs
+     * Insert signatures and return the signed PSBT. A signature's anti-exfil `point` goes in as a proprietary field.
+     * @param {{input: number, pubkey: Uint8Array, sig: Uint8Array, point?: Uint8Array | null}[]} sigs
      */
     finalize(sigs: {
         input: number;
         pubkey: Uint8Array;
         sig: Uint8Array;
+        point?: Uint8Array | null;
     }[]): Uint8Array<ArrayBuffer>;
     #private;
 }
@@ -137,6 +140,8 @@ export type ParserExports = {
     parser_prevtx_off: (i: number) => number;
     parser_prevtx_len: (i: number) => number;
     parser_finalize: (n: number) => number;
+    parser_nonces: () => number;
+    parser_nonce_points: () => number;
     parser_ur_reset: () => void;
     parser_ur_receive: (len: number) => number;
     parser_ur_progress: () => number;

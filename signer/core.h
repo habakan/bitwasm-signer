@@ -72,6 +72,10 @@ uint32_t core_fingerprint(void);
 int core_review(const plan_t *p, const core_prevtx_t prev[PLAN_MAX_INPUTS], core_review_t *r);
 int core_display(const plan_t *p, const core_review_t *r, core_display_t *d);
 int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned *n_sigs);
+/* Anti-exfil: a coordinator's 32 random bytes for input i, used by the next core_sign() and then forgotten. That
+ * input's nonce is then k = q + H(Q, m, n), and core_nonce_point(k) is the Q of sigs[k] (33 bytes, zero if none) */
+int core_set_host_nonce(unsigned i, const uint8_t n[32]);
+const uint8_t *core_nonce_point(unsigned k);
 /* BTC with eight decimals (60000 -> "0.00060000") */
 void core_format_btc(uint64_t sats, char out[21]);
 

@@ -32,6 +32,8 @@ static size_t msg_len;
 static int msg_reviewed;
 static ms_wallet_t wallet; /* the registered multisig, with ours its key that the seed re-derives */
 static int wallet_ours = -1;
+static uint8_t host_nonce[PLAN_MAX_INPUTS][32], host_nonce_set[PLAN_MAX_INPUTS];
+static uint8_t nonce_points[PLAN_MAX_INPUTS][33]; /* Q for each signature core_sign() made, zero without a host nonce */
 
 enum { SPK_OTHER, SPK_P2WPKH, SPK_P2SH_P2WPKH, SPK_P2TR, SPK_P2WSH };
 
@@ -262,6 +264,8 @@ void core_unload(void) {
     wipe(msg_hash, sizeof(msg_hash));
     wipe(msg_path, sizeof(msg_path));
     msg_len = 0;
+    memset(host_nonce_set, 0, sizeof(host_nonce_set));
+    memset(nonce_points, 0, sizeof(nonce_points));
 }
 
 uint32_t core_fingerprint(void) {
@@ -361,7 +365,42 @@ int core_display(const plan_t *p, const core_review_t *r, core_display_t *d) {
     return CORE_OK;
 }
 
-static int sign_input(const plan_t *p, unsigned i, core_sig_t *s) {
+/* Anti-exfil (Delving Bitcoin #1081): k = q + H(Q, m, n) with q = H(x, m, n). The coordinator recomputes R from Q
+ * and its own n, so a signer cannot pick R to carry the key out, beyond grinding q a few bits at a time */
+typedef struct {
+    const uint8_t *n;
+    uint8_t point[33];
+} exfil_t;
+
+static int exfil_nonce(uint8_t k[32], const uint8_t m[32], const uint8_t x[32], exfil_t *e) {
+    uint8_t buf[97], t[32];
+    secp256k1_pubkey q;
+    size_t len = 33;
+    int ok;
+    memcpy(buf, x, 32), memcpy(buf + 32, m, 32), memcpy(buf + 64, e->n, 32);
+    ok = secp256k1_tagged_sha256(ctx, k, (const uint8_t *)"jitsu-in/anti-exfil/q", 21, buf, 96) &&
+         secp256k1_ec_pubkey_create(ctx, &q, k) &&
+         secp256k1_ec_pubkey_serialize(ctx, e->point, &len, &q, SECP256K1_EC_COMPRESSED);
+    memcpy(buf, e->point, 33), memcpy(buf + 33, m, 32), memcpy(buf + 65, e->n, 32);
+    ok = ok && secp256k1_tagged_sha256(ctx, t, (const uint8_t *)"jitsu-in/anti-exfil/t", 21, buf, 97) &&
+         secp256k1_ec_seckey_tweak_add(ctx, k, t);
+    wipe(buf, sizeof(buf));
+    return ok;
+}
+
+static int exfil_ecdsa(uint8_t *nonce32, const uint8_t *msg32, const uint8_t *key32, const uint8_t *algo16, void *data,
+                       unsigned attempt) {
+    (void)algo16;
+    return attempt == 0 && exfil_nonce(nonce32, msg32, key32, data);
+}
+
+static int exfil_schnorr(uint8_t *nonce32, const uint8_t *msg, size_t msglen, const uint8_t *key32,
+                         const uint8_t *xonly32, const uint8_t *algo, size_t algolen, void *data) {
+    (void)xonly32, (void)algo, (void)algolen;
+    return msglen == 32 && exfil_nonce(nonce32, msg, key32, data);
+}
+
+static int sign_input(const plan_t *p, unsigned i, core_sig_t *s, uint8_t point[33]) {
     const plan_input_t *in = &p->inputs[i];
     uint8_t digest[32], xonly[32];
     secp256k1_ecdsa_signature sig;
@@ -371,6 +410,7 @@ static int sign_input(const plan_t *p, unsigned i, core_sig_t *s) {
     bip32_node_t node;
     size_t len = 72;
     int ok = owns(&in->key, &in->spk, &p->wscripts[i], &node);
+    exfil_t ex = {host_nonce_set[i] ? host_nonce[i] : NULL, {0}};
 
     s->input = (uint8_t)i;
     if (ok && spk_type(&in->spk) != SPK_P2TR) {
@@ -381,24 +421,32 @@ static int sign_input(const plan_t *p, unsigned i, core_sig_t *s) {
         hash160(s->pubkey, 33, pkh);
         ok = ok && (spk_type(&in->spk) == SPK_P2WSH ? sighash_bip143_p2wsh(p, i, &p->wscripts[i], digest)
                                                     : sighash_bip143_p2wpkh(p, i, pkh, digest));
-        do {
-            ok = ok && secp256k1_ecdsa_sign(ctx, &sig, digest, node.key, NULL, counter ? extra : NULL) &&
-                 secp256k1_ecdsa_signature_serialize_compact(ctx, compact, &sig);
-            counter++;
-            for (int k = 0; k < 4; k++) extra[k] = (uint8_t)(counter >> (8 * k));
-        } while (ok && compact[0] >= 0x80);
+        /* Under anti-exfil, no low-R grinding: retrying would be the very churning it is there to limit */
+        if (ex.n) {
+            ok = ok && secp256k1_ecdsa_sign(ctx, &sig, digest, node.key, exfil_ecdsa, &ex);
+        } else {
+            do {
+                ok = ok && secp256k1_ecdsa_sign(ctx, &sig, digest, node.key, NULL, counter ? extra : NULL) &&
+                     secp256k1_ecdsa_signature_serialize_compact(ctx, compact, &sig);
+                counter++;
+                for (int k = 0; k < 4; k++) extra[k] = (uint8_t)(counter >> (8 * k));
+            } while (ok && compact[0] >= 0x80);
+        }
         /* Verify before letting it out: collecting a glitched signature next to a good one can recover the key */
         ok = ok && secp256k1_ec_pubkey_create(ctx, &pub, node.key) && secp256k1_ecdsa_verify(ctx, &sig, digest, &pub) &&
              secp256k1_ecdsa_signature_serialize_der(ctx, s->sig, &len, &sig);
         s->sig[len] = 0x01;
         s->sig_len = (uint8_t)(len + 1);
     } else if (ok) {
+        secp256k1_schnorrsig_extraparams extra = SECP256K1_SCHNORRSIG_EXTRAPARAMS_INIT;
+        extra.noncefp = exfil_schnorr, extra.ndata = &ex;
         /* aux is zero. BIP340's security does not depend on its quality, and being deterministic means
          * the same PSBT always yields the same signature, which another implementation can reproduce.
          * Core, Trezor, Jade and BDK all do this. **Revisit before MuSig2 or FROST**: BIP340 says
          * deterministic nonces are unsafe there */
         ok = taproot_tweak(node.key, xonly, &kp) && sighash_bip341_keypath(ctx, p, i, in->sighash_type, digest) &&
-             secp256k1_schnorrsig_sign32(ctx, s->sig, digest, &kp, NULL) &&
+             (ex.n ? secp256k1_schnorrsig_sign_custom(ctx, s->sig, digest, 32, &kp, &extra)
+                   : secp256k1_schnorrsig_sign32(ctx, s->sig, digest, &kp, NULL)) &&
              secp256k1_xonly_pubkey_parse(ctx, &xpub, xonly) &&
              secp256k1_schnorrsig_verify(ctx, s->sig, digest, 32, &xpub);
         s->pubkey[0] = 0;
@@ -406,15 +454,28 @@ static int sign_input(const plan_t *p, unsigned i, core_sig_t *s) {
         s->sig_len = 64;
         if (in->sighash_type) s->sig[s->sig_len++] = in->sighash_type;
     }
+    if (ok && ex.n) memcpy(point, ex.point, 33);
     wipe(&node, sizeof(node));
     wipe(&kp, sizeof(kp));
     return ok;
+}
+
+int core_set_host_nonce(unsigned i, const uint8_t n[32]) {
+    if (i >= PLAN_MAX_INPUTS) return 0;
+    memcpy(host_nonce[i], n, 32);
+    host_nonce_set[i] = 1;
+    return 1;
+}
+
+const uint8_t *core_nonce_point(unsigned k) {
+    return k < PLAN_MAX_INPUTS ? nonce_points[k] : NULL;
 }
 
 int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned *n_sigs) {
     uint8_t h[32], blind[32];
 
     *n_sigs = 0;
+    memset(nonce_points, 0, sizeof(nonce_points));
     sha256((const uint8_t *)p, sizeof(*p), h);
     if (!reviewed || memcmp(h, reviewed_hash, 32)) return CORE_ERR_NOT_REVIEWED;
     /* Vary the intermediate values of every computation that touches the key, so power traces cannot
@@ -426,14 +487,16 @@ int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS],
     for (unsigned i = 0; i < p->n_inputs; i++) {
         const plan_input_t *in = &p->inputs[i];
         if (in->key.depth == 0 || in->key.fingerprint != master_fp) continue;
-        if (!sign_input(p, i, &sigs[*n_sigs])) {
+        if (!sign_input(p, i, &sigs[*n_sigs], nonce_points[*n_sigs])) {
             wipe(sigs, sizeof(core_sig_t) * PLAN_MAX_INPUTS);
+            memset(nonce_points, 0, sizeof(nonce_points));
             *n_sigs = 0;
             return CORE_ERR_CRYPTO;
         }
         (*n_sigs)++;
     }
     reviewed = 0;
+    memset(host_nonce_set, 0, sizeof(host_nonce_set));
     return CORE_OK;
 }
 

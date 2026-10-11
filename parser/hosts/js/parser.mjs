@@ -23,6 +23,8 @@ const PLAN_SIZE = 6712;
  *   parser_prevtx_off: (i: number) => number,
  *   parser_prevtx_len: (i: number) => number,
  *   parser_finalize: (n: number) => number,
+ *   parser_nonces: () => number,
+ *   parser_nonce_points: () => number,
  *   parser_ur_reset: () => void,
  *   parser_ur_receive: (len: number) => number,
  *   parser_ur_progress: () => number,
@@ -342,9 +344,16 @@ export class Parser {
     };
   }
 
+  /** Anti-exfil: per input, 1 then the coordinator's 32-byte n, 16 x 33 bytes, to hand to the signer's sign(). */
+  nonces() {
+    if (!this.#planAvailable) throw new Error("parse() must succeed before nonces()");
+    this.#refresh();
+    return this.#bytes(this.exports.parser_nonces(), 16 * 33);
+  }
+
   /**
-   * Insert signatures and return the signed PSBT.
-   * @param {{input: number, pubkey: Uint8Array, sig: Uint8Array}[]} sigs
+   * Insert signatures and return the signed PSBT. A signature's anti-exfil `point` goes in as a proprietary field.
+   * @param {{input: number, pubkey: Uint8Array, sig: Uint8Array, point?: Uint8Array | null}[]} sigs
    */
   finalize(sigs) {
     if (sigs.length > 16) throw new RangeError(`${sigs.length} signatures, a plan has at most 16 inputs`);
@@ -352,12 +361,16 @@ export class Parser {
       if (!(s.input >= 0 && s.input < 16) || s.pubkey.length !== 33 || s.sig.length > 73) {
         throw new RangeError(`input ${s.input}: a signature slot takes a 33-byte pubkey and at most 73 bytes of signature`);
       }
+      if (s.point && s.point.length !== 33) throw new RangeError(`input ${s.input}: an anti-exfil point is 33 bytes`);
     }
     this.#refresh();
     const base = this.exports.parser_sigs();
+    const points = this.exports.parser_nonce_points();
     this.mem.fill(0, this.#check(base, 108 * 16), base + 108 * 16);
+    this.mem.fill(0, this.#check(points, 33 * 16), points + 33 * 16);
     sigs.forEach((s, i) => {
       const o = base + i * 108;
+      if (s.point) this.mem.set(s.point, points + i * 33);
       this.mem[o] = s.input;
       this.mem.set(s.pubkey, o + 1);
       this.mem[o + 34] = s.sig.length;
