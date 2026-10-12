@@ -16,8 +16,8 @@ jitsu-in は Bitcoin の署名に使う処理を WebAssembly モジュールと�
 
 | | byte | import | 何をするか |
 |---|---:|---:|---|
-| [`parser.wasm`](../../parser/README.md) | 15,697 | **0** | アニメーション QR（UR）の復元、PSBT v0 の解析、固定長 plan の生成、署名の差し込み、UR の符号化 |
-| [`signer.wasm`](../../signer/docs/abi.md) | 81,085 | **0** | 鍵、ニーモニックの生成、SeedQR の読み書き、BIP85 の子シード、BIP32 導出、plan の再検証、表示内容の組み立て、sighash、署名、BIP137 のメッセージ署名、xpub 出力、自分のアドレスの検索 |
+| [`parser.wasm`](../../parser/README.md) | 15,854 | **0** | アニメーション QR（UR）の復元、PSBT v0 の解析、固定長 plan の生成、署名の差し込み、UR の符号化 |
+| [`signer.wasm`](../../signer/docs/abi.md) | 82,117 | **0** | 鍵、ニーモニックの生成、SeedQR の読み書き、BIP85 の子シード、BIP32 導出、plan の再検証、表示内容の組み立て、sighash、署名、BIP137 のメッセージ署名、xpub 出力、自分のアドレスの検索 |
 
 
 ## 利用方法
@@ -75,7 +75,8 @@ make check-hosts-agree       # すべてのホストで出力が同じバイト�
 単署名の P2WPKH（[BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki)）、
 P2SH-P2WPKH（[BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki)）、
 P2TR の key path（[BIP86](https://github.com/bitcoin/bips/blob/master/bip-0086.mediawiki)）、
-`SIGHASH_ALL` と Taproot の `SIGHASH_DEFAULT` に対応しています。マルチシグ、スクリプトツリー、
+鍵が3つまでの P2WSH マルチシグ（[BIP48](https://github.com/bitcoin/bips/blob/master/bip-0048.mediawiki)）、
+`SIGHASH_ALL` と Taproot の `SIGHASH_DEFAULT` に対応しています。Taproot のマルチシグ、スクリプトツリー、
 レガシー P2PKH の署名は扱いません。
 
 ## ライセンス

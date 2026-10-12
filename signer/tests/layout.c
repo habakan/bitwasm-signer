@@ -19,7 +19,9 @@ int main(void) {
     F(plan_t, n_outputs);
     F(plan_t, inputs);
     F(plan_t, outputs);
+    F(plan_t, wscripts);
     printf("  \"input_size\": %zu,\n", sizeof(plan_input_t));
+    printf("  \"wscript_size\": %zu,\n", sizeof(plan_wscript_t));
     printf("  \"output_size\": %zu\n },\n", sizeof(plan_output_t));
 
     printf(" \"core_review_t\": {\n");
@@ -65,6 +67,7 @@ int main(void) {
     printf("  \"max_outputs\": %d,\n", PLAN_MAX_OUTPUTS);
     printf("  \"max_spk\": %d,\n", PLAN_MAX_SPK);
     printf("  \"max_depth\": %d,\n", PLAN_MAX_DEPTH);
+    printf("  \"max_wscript\": %d,\n", PLAN_MAX_WSCRIPT);
     printf("  \"xpub_max\": %d,\n", CORE_XPUB_MAX);
     printf("  \"desc_max\": %d\n },\n", CORE_DESC_MAX);
 

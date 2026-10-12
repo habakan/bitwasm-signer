@@ -8,7 +8,7 @@ The module has **zero imports**
 and does not use WASI, so any runtime that can execute WebAssembly works: WAMR on a microcontroller,
 V8 or JavaScriptCore in a browser, wasmtime, wasmi, Chicory (JVM), WasmKit (Swift), WasmEdge.
 
-This file describes ABI **version 1** (`plan_t.version`). Sizes and offsets below are asserted at
+This file describes ABI **version 2** (`plan_t.version`). Sizes and offsets below are asserted at
 compile time in `include/plan.h` and are stable for a given version.
 
 ## The module
@@ -16,7 +16,7 @@ compile time in `include/plan.h` and are stable for a given version.
 ```
 imports   none
 memory    exported as "memory", 3 pages (196,608 bytes), not growable
-globals   __data_end, __heap_base (both 136064; the module never allocates)
+globals   __data_end, __heap_base (both 137760; the module never allocates)
 ```
 
 All buffers are static. The exported accessors return **offsets into the linear memory**,
@@ -107,7 +107,7 @@ if (rc !== 0) throw new Error("P_ERR " + rc);
 // 3. read the plan. Offsets are in this document; never hard-code the buffer address
 const plan = w.parser_plan();
 if (dv.getUint32(plan, true) !== 0x4e4c5042) throw new Error("bad magic");  // "BPLN"
-if (dv.getUint32(plan + 4, true) !== 1) throw new Error("unknown ABI version");
+if (dv.getUint32(plan + 4, true) !== 2) throw new Error("unknown ABI version");
 
 const nIn = u8[plan + 16], nOut = u8[plan + 17];
 let totalIn = 0n, totalOut = 0n;
@@ -131,16 +131,16 @@ that scriptPubKey is the host's job — see [What the host must still do](#what-
 Host libraries for other languages, each runnable with `make run`, are in
 [`hosts/`](../hosts): Kotlin on Chicory, Swift on WasmKit.
 
-## Memory map (version 1, informative)
+## Memory map (version 2, informative)
 
 Offsets are what the accessors return today. **Do not hard-code them**; call the accessors.
 
 | Buffer | Offset | Size |
 |---|---:|---:|
 | input | 17,744 | 32,768 |
-| plan | 50,512 | 5,016 |
-| sigs | 55,536 | 1,728 (16 × 108) |
-| output | 57,264 | 34,816 |
+| plan | 50,512 | 6,712 |
+| sigs | 57,232 | 1,728 (16 × 108) |
+| output | 58,960 | 34,816 |
 
 ## `plan_t`
 
@@ -148,13 +148,15 @@ The parser's whole output. No pointers and no `long`, so wasm32, rv32 and 64-bit
 
 ```c
 #define PLAN_MAGIC       0x4e4c5042u /* "BPLN" */
-#define PLAN_VERSION     1
+#define PLAN_VERSION     2
 #define PLAN_MAX_INPUTS  16
 #define PLAN_MAX_OUTPUTS 16
 #define PLAN_MAX_SPK     83
 #define PLAN_MAX_DEPTH   8
+#define PLAN_MAX_WSCRIPT 105 /* sortedmulti of at most three keys */
 
 typedef struct { uint8_t len; uint8_t bytes[83]; } plan_script_t;          /* 84 */
+typedef struct { uint8_t len; uint8_t bytes[105]; } plan_wscript_t;        /* 106 */
 
 typedef struct {
     uint8_t  depth;         /* 0 = this is not ours */
@@ -185,7 +187,8 @@ typedef struct {
     uint8_t  n_inputs, n_outputs;
     plan_input_t  inputs[16];
     plan_output_t outputs[16];
-} plan_t;                                                                  /* 5016 */
+    plan_wscript_t wscripts[16]; /* a P2WSH input's witness script, only for one to be signed */
+} plan_t;                                                                  /* 6712 */
 ```
 
 Field offsets a non-C host needs:
@@ -193,13 +196,14 @@ Field offsets a non-C host needs:
 | | offset | |
 |---|---:|---|
 | `plan_t.magic` | 0 | u32, must be `0x4e4c5042` |
-| `plan_t.version` | 4 | u32, must be 1 |
+| `plan_t.version` | 4 | u32, must be 2 |
 | `plan_t.tx_version` | 8 | i32 |
 | `plan_t.locktime` | 12 | u32 |
 | `plan_t.n_inputs` | 16 | u8 |
 | `plan_t.n_outputs` | 17 | u8 |
 | `plan_t.inputs` | 24 | stride 176 |
 | `plan_t.outputs` | 2,840 | stride 136 |
+| `plan_t.wscripts` | 5,016 | stride 106: 1 byte length + 105 bytes |
 | `plan_input_t.amount` | 40 | u64 little-endian |
 | `plan_input_t.spk` | 48 | 1 byte length + 83 bytes |
 | `plan_input_t.key` | 132 | |
@@ -212,14 +216,15 @@ Field offsets a non-C host needs:
 
 All integers are little-endian, as in the WebAssembly linear memory.
 
-A host **must** check `magic == 0x4e4c5042` and `version == 1` before trusting the rest.
+A host **must** check `magic == 0x4e4c5042` and `version == 2` before trusting the rest. Version 2 added
+`wscripts` after `outputs`; every earlier offset is unchanged.
 
 ## `plan_sig_t`
 
 ```c
 typedef struct {
     uint8_t input;      /* index into plan.inputs */
-    uint8_t pubkey[33]; /* compressed pubkey for P2WPKH and P2SH-P2WPKH; 0x00 + x-only output key for P2TR */
+    uint8_t pubkey[33]; /* compressed pubkey for P2WPKH, P2SH-P2WPKH and P2WSH; 0x00 + x-only output key for P2TR */
     uint8_t sig_len;
     uint8_t sig[73];    /* DER + sighash byte for ECDSA; 64 or 65 bytes for Schnorr */
 } plan_sig_t;           /* 108 */
@@ -272,8 +277,8 @@ This module does the first two: a `non_witness_utxo` whose txid or output does n
 transaction is rejected with `P_ERR_UTXO`, and amounts come only from the PSBT's own UTXO data.
 The third falls to the signer. The only `redeemScript` in scope is BIP49's P2SH-P2WPKH, and this
 module does not read it: it passes a P2SH input's derivation through, and `signer.wasm` derives the
-redeem script from its own key and refuses the input unless its hash is the UTXO's. `witnessScript`
-inputs remain out of scope.
+redeem script from its own key and refuses the input unless its hash is the UTXO's. A P2WSH input's
+`witnessScript` is copied into `wscripts` as is, and `signer.wasm` refuses it unless its SHA256 is the UTXO's.
 
 BIP174 also says "The Signer may choose to fail to sign a segwit input if a non-witness UTXO is not
 provided." The host decides that, not this module; the reference host requires one when a SegWit v0
@@ -303,7 +308,8 @@ The parser is untrusted. It shapes bytes into a struct; it does not decide anyth
 
 ## Versioning
 
-`plan_t.version` is `1`. Adding a field, changing a size, or changing a meaning bumps it.
+`plan_t.version` is `2`; version 1 was the 5,016-byte layout without `wscripts`. Adding a field,
+changing a size, or changing a meaning bumps it.
 A host that sees an unknown version must refuse rather than guess.
 Export names and error numbers are part of the ABI and do not change within a version.
 
@@ -322,7 +328,8 @@ make fuzz-ur
 
 Two harnesses cover everything an attacker controls: `tests/fuzz_psbt.c` feeds arbitrary bytes to
 `parser_parse` and then checks the invariants a host relies on (magic, version, counts, script
-lengths, derivation depth, and that `parser_prevtx_off/len` stay inside the input buffer), and
+lengths, derivation depth, that a witness script is only ever filled for a P2WSH input to be signed, and
+that `parser_prevtx_off/len` stay inside the input buffer), and
 `tests/fuzz_ur.c` feeds arbitrary UR parts, one per line, the way an animated QR arrives.
 
 Needs a clang with libFuzzer. Apple's does not ship it; Homebrew's `llvm` does, and the Makefile

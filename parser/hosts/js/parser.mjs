@@ -6,8 +6,8 @@
 // take that on trust. See ../../docs/abi.md.
 
 const MAGIC = 0x4e4c5042; // "BPLN"
-const ABI_VERSION = 1;
-const PLAN_SIZE = 5016;
+const ABI_VERSION = 2;
+const PLAN_SIZE = 6712;
 
 /**
  * The exports parser.wasm provides. Declared so that a typo in a name is a type error rather than a
@@ -228,7 +228,7 @@ export class Parser {
     return plan;
   }
 
-  /** Copy the current ABI-v1 plan_t bytes for a matching signer.wasm module. */
+  /** Copy the current ABI-v2 plan_t bytes for a matching signer.wasm module. */
   rawPlan() {
     if (!this.#planAvailable) throw new Error("parse() must succeed before rawPlan()");
     return this.#bytes(this.exports.parser_plan(), PLAN_SIZE);

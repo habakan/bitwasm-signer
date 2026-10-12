@@ -11,8 +11,8 @@ instructions rather than wall-clock time, with WAMR built the way the device bui
 
 | | wasm (flash) | linear memory | `__heap_base` | imports |
 |---|---:|---:|---:|---:|
-| C | 15,570 | 196,608 (3 pages) | 136,064 | 0 |
-| Rust | 20,542 | 196,608 (3 pages) | 174,608 | 0 |
+| C | 15,854 | 196,608 (3 pages) | 137,760 | 0 |
+| Rust | 20,829 | 196,608 (3 pages) | 176,304 | 0 |
 
 The linear memory is the same. Flash costs 5 KB more out of 4 MB.
 

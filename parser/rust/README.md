@@ -22,8 +22,8 @@ The port is complete, so this is the whole module both ways, with the same flags
 
 | | wasm (flash) | linear memory | `__heap_base` | imports | dependencies |
 |---|---:|---:|---:|---:|---:|
-| C | **15,570** | 196,608 (3 pages) | 136,064 | 0 | — |
-| Rust, `no_std` | **20,542** | 196,608 (3 pages) | 174,608 | 0 | **0** |
+| C | **15,854** | 196,608 (3 pages) | 137,760 | 0 | — |
+| Rust, `no_std` | **20,829** | 196,608 (3 pages) | 176,304 | 0 | **0** |
 
 **The linear memory is the same, and that is the number that matters on a microcontroller.** The
 module's bytes cost 5 KB more of flash, out of 4 MB, and the interpreter's writable copy of it costs
@@ -33,7 +33,7 @@ Getting there took two corrections, both of which inflated an earlier measuremen
 
 - **Cargo's default wasm stack is 1 MB.** Without `-zstack-size` the linear memory came to 18 pages
   against the C's 3 — it would not have fitted on the device at all. `.cargo/config.toml` sets it to
-  48 KB, which is what this needs; 32 KB is not enough, because Rust passes `Parsed` (the 5,016-byte
+  48 KB, which is what this needs; 32 KB is not enough, because Rust passes `Parsed` (the 6,712-byte
   plan plus its side tables) by value where the C passed a pointer
 - **The working arrays belonged in `static`, not on the stack.** The sampler's 1,024 weights, its
   aliases and the shuffle's index array are 22 KB, and the linker reserves the deepest stack any path

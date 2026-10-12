@@ -141,6 +141,16 @@ def main():
     if f"the `plan_t`, {truth['plan_t']['size']} bytes" not in spec:
         bad.append(f"abi.md: plan_t size is not {truth['plan_t']['size']}")
 
+    # The wscripts offset is typed by hand in the parser spec and in two test files
+    ws, stride = truth["plan_t"]["wscripts"], truth["plan_t"]["wscript_size"]
+    row = f"| `plan_t.wscripts` | {ws:,} | stride {stride}: 1 byte length + {truth['limits']['max_wscript']} bytes |"
+    if row not in Path("parser/docs/abi.md").read_text():
+        bad.append(f"parser/docs/abi.md: does not have the row {row}")
+    for path, text in [("signer/hosts/js/test.mjs", f"WS = (i) => {ws} + {stride} * i"),
+                       ("parser/tools/run_tests.mjs", f"WSCRIPTS = {ws}, WSCRIPT_SIZE = {stride}")]:
+        if text not in Path(path).read_text():
+            bad.append(f"{path}: does not say {text}")
+
     for b in bad:
         print(f"  {b}")
     print(f"check-layout: {'FAILED' if bad else 'the spec, all three host libraries and the structs agree'}")

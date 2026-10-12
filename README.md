@@ -16,8 +16,8 @@ against what it claims to be, and 実印 itself, the mark that commits you.</sub
 
 | | bytes | imports | what it does |
 |---|---:|---:|---|
-| [`parser.wasm`](parser/README.md) | 15,697 | **0** | animated QR (UR) reassembly, PSBT v0 parsing, building a fixed-layout plan, taking signatures back, UR encoding |
-| [`signer.wasm`](signer/docs/abi.md) | 81,085 | **0** | keys, new mnemonics, SeedQR in and out, BIP85 children, BIP32 derivation, re-checking that plan, building what to display, sighash, signing, BIP137 messages, xpub export, finding our addresses |
+| [`parser.wasm`](parser/README.md) | 15,854 | **0** | animated QR (UR) reassembly, PSBT v0 parsing, building a fixed-layout plan, taking signatures back, UR encoding |
+| [`signer.wasm`](signer/docs/abi.md) | 82,117 | **0** | keys, new mnemonics, SeedQR in and out, BIP85 children, BIP32 derivation, re-checking that plan, building what to display, sighash, signing, BIP137 messages, xpub export, finding our addresses |
 
 <img src="docs/everywhere.svg" alt="The same bytes run everywhere: jitsu-in at the centre, six places it has been run" width="940">
 
@@ -83,9 +83,10 @@ make check-hosts-agree       # and require all of them to produce the same bytes
 ## Scope
 
 Single-signature P2WPKH ([BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki)),
-P2SH-P2WPKH ([BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki))
-and P2TR key path ([BIP86](https://github.com/bitcoin/bips/blob/master/bip-0086.mediawiki)),
-`SIGHASH_ALL` and Taproot's `SIGHASH_DEFAULT`. No multisig, no script trees, no legacy P2PKH
+P2SH-P2WPKH ([BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki)),
+P2TR key path ([BIP86](https://github.com/bitcoin/bips/blob/master/bip-0086.mediawiki)) and P2WSH
+multisig of at most three keys ([BIP48](https://github.com/bitcoin/bips/blob/master/bip-0048.mediawiki)),
+`SIGHASH_ALL` and Taproot's `SIGHASH_DEFAULT`. No taproot multisig, no script trees, no legacy P2PKH
 signing.
 
 ## Licence

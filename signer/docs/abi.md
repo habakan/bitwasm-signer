@@ -3,7 +3,7 @@
 `signer.wasm` is the half that holds the key. It takes the `plan_t` that `parser.wasm` produced,
 re-derives the keys to check it, builds what a person should be shown, and returns signatures.
 
-It is 81,085 bytes with **zero imports**: no clock, no randomness, no filesystem, no network. The
+It is 82,117 bytes with **zero imports**: no clock, no randomness, no filesystem, no network. The
 shared conventions are in [../../docs/module-abi.md](../../docs/module-abi.md); this page is
 what is specific to this module.
 
@@ -12,7 +12,7 @@ byte:
 
 | | | |
 |---|---|---|
-| JavaScript | [hosts/js/signer.mjs](../hosts/js/signer.mjs) | 146 checks in [test.mjs](../hosts/js/test.mjs) |
+| JavaScript | [hosts/js/signer.mjs](../hosts/js/signer.mjs) | 173 checks in [test.mjs](../hosts/js/test.mjs) |
 | Kotlin / JVM / Android | [hosts/kotlin/Signer.kt](../hosts/kotlin/Signer.kt) | 71 checks in [Test.kt](../hosts/kotlin/Test.kt) |
 | Swift / macOS / iOS | [hosts/swift/Sources/WasmSigner/Signer.swift](../hosts/swift/Sources/WasmSigner/Signer.swift) | 68 checks in [SignerCheck](../hosts/swift/Sources/SignerCheck/main.swift) |
 
@@ -43,7 +43,7 @@ way it is not for `parser.wasm`.
 ```
 signer_init(testnet)
 signer_seed_from_mnemonic(...)   or   signer_seed_from_seedqr(...)   or   signer_load_seed()
-signer_plan()        <- write the 5016-byte plan_t here
+signer_plan()        <- write the 6712-byte plan_t here
 signer_set_prevtx(i, off, len)   for each input, after writing into signer_prevtx()
 signer_review()      -> re-derives keys, decides what is ours, computes the fee
 signer_display()     -> the strings and amounts to show
@@ -64,7 +64,7 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 |---|---|
 | `signer_input() -> ptr` | the mnemonic or a SeedQR payload followed by the passphrase, a 64-byte seed, entropy or dice rolls for a new mnemonic, an address to find, or a message to sign |
 | `signer_input_cap() -> u32` | how many bytes that is (512); check before writing |
-| `signer_plan() -> ptr` | the `plan_t`, 5016 bytes, copied verbatim from `parser_plan()` |
+| `signer_plan() -> ptr` | the `plan_t`, 6712 bytes, copied verbatim from `parser_plan()` |
 | `signer_prevtx() -> ptr` | the `non_witness_utxo` bytes, laid out however you like within 32768 |
 | `signer_review_output() -> ptr` | `core_review_t`, 64 bytes |
 | `signer_display_output() -> ptr` | `core_display_t`, 2968 bytes |
@@ -94,7 +94,7 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_sign()` | the number of signatures, or the negated error |
 | `signer_message_review(len, purpose, account, chain, index)` | 0 on success. The message in the input buffer (at most 512 bytes) and the key at m/purpose'/coin'/account'/chain/index, `purpose` 49 or 84; see below |
 | `signer_message_sign()` | 0 on success, `NOT_REVIEWED` unless it is the message and key the last review showed |
-| `signer_xpub(purpose, account)` | 0 on success. m/purpose'/coin'/account' with `purpose` 49 (`sh(wpkh())`), 84 (`wpkh()`) or 86 (`tr()`) and `account` below 2^31, otherwise `FORMAT`, with the xpub and descriptor buffers emptied |
+| `signer_xpub(purpose, account)` | 0 on success. m/purpose'/coin'/account' with `purpose` 49 (`sh(wpkh())`), 84 (`wpkh()`) or 86 (`tr()`), or m/48'/coin'/account'/2' with `purpose` 48 (the key expression for `wsh(sortedmulti())`), and `account` below 2^31, otherwise `FORMAT`, with the xpub and descriptor buffers emptied |
 | `signer_find_address(len, account, count)` | where the address in `signer_input()` is on m/purpose'/coin'/account', receive then change, indices 0 to `count`-1: `chain << 20 \| index`, or the negated error; `NOT_FOUND` when it is not there. See below |
 | `signer_fingerprint()` | the master fingerprint, or 0 when no seed is loaded |
 | `signer_unload()` | nothing. Zeroes the key, the plan, the signatures and the display |
@@ -138,7 +138,7 @@ be the bytes Core gives for the same key. P2TR has no BIP137 form; BIP322 is not
 | 3 | `NOT_OURS` | an input claims our fingerprint, but its key does not produce its script |
 | 4 | `NOTHING_TO_SIGN` | no input in the plan is ours |
 | 5 | `SIGHASH` | a sighash type this signer does not allow |
-| 6 | `SCRIPT` | an input to be signed is not P2WPKH, P2SH-P2WPKH or P2TR |
+| 6 | `SCRIPT` | an input to be signed is not P2WPKH, P2SH-P2WPKH, P2TR, or P2WSH with a multisig of at most three keys |
 | 7 | `PREVTX_MISSING` | two or more inputs including SegWit v0, and no previous transaction |
 | 8 | `PREVTX_MISMATCH` | the previous transaction disagrees with the claimed amount, txid or vout |
 | 9 | `FEE` | the fee does not add up, or overflows |
@@ -168,7 +168,7 @@ this page and the code disagree.
 | offset | size | field |
 |---:|---:|---|
 | 0 | 8 | `fee`, satoshis |
-| 8 | 8 | `spend`, the total of external outputs only |
+| 8 | 8 | `spend`, the total of external outputs only; P2WSH change is among them, see below |
 | 16 | 1 | `n_outputs` |
 | 24 | 16 x 184 | `outputs[]` |
 
@@ -211,11 +211,15 @@ Trezor, Jade and BDK all do too. So the same key over the same plan always gives
 
 That is a property worth having: this module in a browser reproduces the device's signature exactly,
 and CI requires both to equal what Bitcoin Core produces for the same PSBT
-(`make check-core-diff`). **It also means this must be revisited before multisig**, where BIP340
-says deterministic nonces are unsafe.
+(`make check-core-diff`). P2WSH multisig is ECDSA under OP_CHECKMULTISIG, where each cosigner signs
+on its own and RFC6979 stays safe; **it must be revisited before MuSig2 or FROST**, where BIP340 says
+deterministic nonces are unsafe.
 
 ## What this module does not do
 
-Single-signature P2WPKH (BIP84), P2SH-P2WPKH (BIP49) and P2TR key path (BIP86), `SIGHASH_ALL` and Taproot's
-`SIGHASH_DEFAULT`. No multisig, no script trees, no legacy P2PKH signing. The full list is in
+P2WPKH (BIP84), P2SH-P2WPKH (BIP49), P2TR key path (BIP86) and P2WSH multisig of at most three keys
+(BIP48), `SIGHASH_ALL` and Taproot's `SIGHASH_DEFAULT`. P2WSH change is shown as an external output and
+counted in `spend`: the signer holds no cosigner keys to recognise it by, so a 2-of-3 spend reads as the
+payment plus the change until a registered multisig supplies them. No taproot multisig, no script trees, no legacy P2PKH
+signing. The full list is in
 jitsu-in-pico's `docs/limitations.md`.
