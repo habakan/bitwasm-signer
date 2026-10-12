@@ -309,6 +309,14 @@ static int parse_input(rd_t *r, unsigned idx, uint32_t fp) {
         c = &tap;
         in->sighash_type = sighash == 0xffffffffu ? 0x00 : (uint8_t)sighash;
     }
+    /* Our Q without our signature: finalize would write the same key again and the output would not parse */
+    for (size_t i = 0; c && !finalized && i < n; i++) {
+        const uint8_t *own = c == &tap ? in->spk.bytes + 2 : bip32.pubkey; /* P2TR signs with the output key */
+        const size_t own_len = c == &tap ? 32 : 33;
+        if (kv[i].klen == 11 + own_len && !memcmp(kv[i].key, exfil_key, 10) && kv[i].key[10] == 2 &&
+            !memcmp(kv[i].key + 11, own, own_len))
+            return P_ERR_DUPLICATE;
+    }
     if (c && !finalized) {
         in->key.depth = c->depth;
         in->key.fingerprint = fp;

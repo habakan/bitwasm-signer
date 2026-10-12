@@ -62,7 +62,8 @@ Two proprietary input fields (BIP174 `0xfc`, identifier `jitsu-in`) carry
 
 The coordinator checks that the x of `Q + H(Q, m, n)G` is the signature's R, with `H` the BIP340 tagged hash
 `jitsu-in/anti-exfil/t` over `Q || m || n` and `m` the sighash. Other fields with the `jitsu-in` identifier are
-ignored.
+ignored. An input that carries this signer's `Q` but not its signature is rejected with `P_ERR_DUPLICATE`, since
+signing it would write the same key twice.
 
 ## Flow
 
