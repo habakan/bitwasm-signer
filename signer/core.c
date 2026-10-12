@@ -471,7 +471,7 @@ const uint8_t *core_nonce_point(unsigned k) {
     return k < PLAN_MAX_INPUTS ? nonce_points[k] : NULL;
 }
 
-int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned *n_sigs) {
+static int sign_all(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned *n_sigs) {
     uint8_t h[32], blind[32];
 
     *n_sigs = 0;
@@ -496,8 +496,13 @@ int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS],
         (*n_sigs)++;
     }
     reviewed = 0;
-    memset(host_nonce_set, 0, sizeof(host_nonce_set));
     return CORE_OK;
+}
+
+int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned *n_sigs) {
+    const int rc = sign_all(p, rng, sigs, n_sigs);
+    memset(host_nonce_set, 0, sizeof(host_nonce_set)); /* a failed attempt must not hand its n to the next */
+    return rc;
 }
 
 int core_find_address(const char *addr, size_t len, uint32_t account, uint32_t count) {
