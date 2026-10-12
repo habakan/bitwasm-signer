@@ -104,6 +104,9 @@ jobs:
       - name: The hosts that can run here agree byte for byte
         run: make check-hosts-agree REQUIRE_KOTLIN=1
 
+      - name: Python host on WAMR agrees byte for byte
+        run: make check-python
+
       # Bitcoin Core as the oracle: it decides what a PSBT means, and our signatures have to equal
       # its signatures byte for byte. Pinned and hash-checked like every other tool here
       - name: Bitcoin Core (pinned by version and by hash)

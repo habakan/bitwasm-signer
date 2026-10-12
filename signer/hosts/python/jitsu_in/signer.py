@@ -40,13 +40,24 @@ MAX_OUTPUTS = 16
 XPUB_MAX = 120
 DESC_MAX = 180
 PREVTX_MAX = 32768
+NONCE_SIZE = 33
+CBOR_MAX = 1024
+MS_SIZE = 732
+MS_THRESHOLD = 0
+MS_N = 1
+MS_OURS = 2
+MS_FINGERPRINTS = 4
+MS_RECEIVE = 16
+MS_RECEIVE_CAP = 75
+MS_DESCRIPTOR = 91
+MS_DESCRIPTOR_CAP = 640
 
 OWNER = ["EXTERNAL", "CHANGE", "SELF"]
 TEXT_KIND = ["ADDRESS", "OP_RETURN", "SCRIPT"]
 ERRORS = {
     1: "FORMAT", 2: "NO_SEED", 3: "NOT_OURS", 4: "NOTHING_TO_SIGN", 5: "SIGHASH", 6: "SCRIPT",
     7: "PREVTX_MISSING", 8: "PREVTX_MISMATCH", 9: "FEE", 10: "NOT_REVIEWED", 11: "CRYPTO",
-    12: "NOT_FOUND",
+    12: "NOT_FOUND", 13: "WALLET",
 }
 NOT_FOUND = 12
 
@@ -233,21 +244,28 @@ class Signer:
                             "text": self._cstr(o + DP_OUT_TEXT, DP_OUT_TEXT_CAP)})
         return {"fee": fee, "spend": spend, "outputs": outputs}
 
-    def sign(self):
-        """Signs only the plan review() was shown. One review permits exactly one signing."""
+    def sign(self, nonces: bytes | bytearray | None = None):
+        """Signs the reviewed plan once; optional parser_nonces() enables anti-exfil."""
         if not self._reviewed:
             raise RuntimeError("review() has to pass first; one approval permits one signing")
+        if nonces is not None:
+            if not isinstance(nonces, (bytes, bytearray)):
+                raise TypeError("nonces must be bytes from parser_nonces()")
+            if len(nonces) != MAX_INPUTS * NONCE_SIZE:
+                raise ValueError(f"nonces are {MAX_INPUTS} x {NONCE_SIZE} bytes, as the parser gives them")
+            self._put(self._e.signer_nonces(), nonces)
         rc = self._e.signer_sign()
         self._reviewed = False
         if rc < 0:
             raise SignerError("sign", -rc)
-        base, out = self._e.signer_sigs(), []
+        base, points, out = self._e.signer_sigs(), self._e.signer_nonce_points(), []
         for i in range(rc):
             at = base + i * SIG_SIZE
             n = self._m[at + SIG_LEN]
+            point = bytes(self._m[points + i * NONCE_SIZE:points + (i + 1) * NONCE_SIZE])
             out.append({"input": self._m[at], "pubkey": bytes(self._m[at + 1:at + 34]),
                         "sig": bytes(self._m[at + SIG_SIG:at + SIG_SIG + n]),
-                        "raw": bytes(self._m[at:at + SIG_SIZE])})
+                        "raw": bytes(self._m[at:at + SIG_SIZE]), "point": point if any(point) else None})
         return out
 
     def find_address(self, address: str, account=0, count=1000):
@@ -290,3 +308,46 @@ class Signer:
             raise SignerError("xpub", rc)
         return {"xpub": self._cstr(self._e.signer_xpub_output(), XPUB_MAX),
                 "descriptor": self._cstr(self._e.signer_desc_output(), DESC_MAX)}
+
+    def multisig_load(self, text: str | bytes | bytearray):
+        """Registers a checked P2WSH wallet and returns what the person must verify."""
+        if isinstance(text, str):
+            raw = text.encode()
+        elif isinstance(text, (bytes, bytearray)):
+            raw = bytes(text)
+        else:
+            raise TypeError("multisig setup must be text or bytes")
+        self._input(raw)
+        rc = self._e.signer_multisig_load(len(raw))
+        if rc != 0:
+            raise SignerError("multisigLoad", rc)
+        at = self._e.signer_multisig_output()
+        n = self._m[at + MS_N]
+        return {
+            "threshold": self._m[at + MS_THRESHOLD], "ours": self._m[at + MS_OURS],
+            "fingerprints": [f"{struct.unpack_from('<I', self._m, at + MS_FINGERPRINTS + 4 * i)[0]:08x}"
+                             for i in range(n)],
+            "receive": self._cstr(at + MS_RECEIVE, MS_RECEIVE_CAP),
+            "descriptor": self._cstr(at + MS_DESCRIPTOR, MS_DESCRIPTOR_CAP),
+        }
+
+    def multisig_unload(self):
+        self._e.signer_multisig_unload()
+
+    def account_cbor(self, account=0) -> bytes:
+        """CBOR for this account's crypto-account UR."""
+        if type(account) is not int or not 0 <= account < 2**32:
+            raise ValueError(f"account {account} out of range")
+        return self._cbor("accountCbor", self._e.signer_account_cbor(account))
+
+    def multisig_cbor(self) -> bytes:
+        """CBOR for the registered wallet's crypto-output UR."""
+        return self._cbor("multisigCbor", self._e.signer_multisig_cbor())
+
+    def _cbor(self, stage, rc):
+        if rc < 0:
+            raise SignerError(stage, -rc)
+        if rc > CBOR_MAX:
+            raise RuntimeError(f"{stage}: module returned {rc} bytes, cap is {CBOR_MAX}")
+        at = self._e.signer_cbor_output()
+        return bytes(self._m[at:at + rc])
