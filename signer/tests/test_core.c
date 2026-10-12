@@ -442,6 +442,10 @@ static void test_anti_exfil(void) {
     CHECK(core_review(&p, NULL, &r) == CORE_OK && core_sign(&p, zero_rng, sigs, &n) == CORE_OK &&
               !memcmp(core_nonce_point(0), zero, 33),
           "a host nonce is used once");
+    CHECK(core_set_host_nonce(0, n0) && core_sign(&p, zero_rng, sigs, &n) == CORE_ERR_NOT_REVIEWED &&
+              core_review(&p, NULL, &r) == CORE_OK && core_sign(&p, zero_rng, sigs, &n) == CORE_OK &&
+              !memcmp(core_nonce_point(0), zero, 33),
+          "a failed sign drops its host nonce too");
 
     /* P2TR: R is checked by x alone, which BIP340's negation of k leaves alone */
     memset(&p, 0, sizeof(p));

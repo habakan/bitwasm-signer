@@ -804,14 +804,15 @@ check("fingerprint after unload", S.fingerprint, "00000000");
 // --- anti-exfil: n goes in as a proprietary input field and Q comes out as one. test_core.c checks R against Q
 {
   const KEY = Uint8Array.of(0xfc, 8, ...new TextEncoder().encode("jitsu-in"));
-  // the PSBT with n just before the end of input 0's map
-  const withNonce = (psbt, n) => {
+  // the PSBT with a record just before the end of input 0's map
+  const withRecord = (psbt, rec) => {
     let o = 5;
     const cs = () => { const b = psbt[o++]; if (b < 0xfd) return b; const v = psbt[o] | psbt[o + 1] << 8; o += 2; return v; };
     for (let map = 0; map < 2; map++) for (let k; (k = cs()); ) { o += k; const v = cs(); o += v; }
     o--;
-    return Buffer.concat([psbt.subarray(0, o), Buffer.from([11, ...KEY, 1, 32]), n, psbt.subarray(o)]);
+    return Buffer.concat([psbt.subarray(0, o), rec, psbt.subarray(o)]);
   };
+  const withNonce = (psbt, n) => withRecord(psbt, Buffer.concat([Buffer.from([11, ...KEY, 1, 32]), n]));
   const n = Buffer.alloc(32, 0x5a);
   for (const [name, schnorr] of [["own_p2wpkh_1in", false], ["own_p2tr_2in", true]]) {
     const psbt = withNonce(readFileSync(`${root}parser/build/vectors/${name}.psbt`), n);
@@ -830,8 +831,11 @@ check("fingerprint after unload", S.fingerprint, "00000000");
     const len = P.parser_finalize(sv.length);
     const out = Buffer.from(mem().slice(P.parser_output(), P.parser_output() + len));
     const keydata = schnorr ? sv[0].pubkey.subarray(1) : sv[0].pubkey;
-    ok(`${name}: the signed PSBT carries Q under the signer's key`,
-       out.includes(Buffer.concat([Buffer.from([11 + keydata.length, ...KEY, 2]), keydata, Buffer.from([33]), sv[0].point])));
+    const qRecord = (key) => Buffer.concat([Buffer.from([11 + key.length, ...KEY, 2]), key, Buffer.from([33]), sv[0].point]);
+    ok(`${name}: the signed PSBT carries Q under the signer's key`, out.includes(qRecord(keydata)));
+    const reparse = (rec) => { const b = withRecord(psbt, rec); mem().set(b, P.parser_input()); return P.parser_parse(b.length, parseInt("73c5da0a", 16)); };
+    check(`${name}: our Q without our signature is refused`, reparse(qRecord(keydata)), 3);
+    check(`${name}: another key's Q is not ours`, reparse(qRecord(Buffer.alloc(keydata.length, 2))), 0);
   }
 }
 
