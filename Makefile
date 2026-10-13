@@ -163,6 +163,10 @@ check-c-tidy:
 	$(LLVM)/clang-tidy $(PARSER_C_SRC) -- -std=c11 -Iparser/c/include --target=wasm32-wasip1 --sysroot=$(WASI)
 .PHONY: check-c-tidy
 
+check-c-unsigned-int:
+	python3 tools/check_unsigned_int.py $(C_FORMAT_FILES)
+.PHONY: check-c-unsigned-int
+
 # Vectors, fuzzing and the parser's own three host libraries
 check-parser: build/parser.wasm
 	$(MAKE) -C parser test $(TOOLS)
