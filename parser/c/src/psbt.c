@@ -183,7 +183,7 @@ static int parse_global(rd_t *r) {
     return have_tx ? P_OK : P_ERR_TX;
 }
 
-static int parse_input(rd_t *r, unsigned idx, uint32_t fp) {
+static int parse_input(rd_t *r, unsigned int idx, uint32_t fp) {
     kv_t kv[MAX_KV];
     size_t n;
     plan_input_t *in = &plan.inputs[idx];
@@ -331,7 +331,7 @@ static int parse_input(rd_t *r, unsigned idx, uint32_t fp) {
     return P_OK;
 }
 
-static int parse_output(rd_t *r, unsigned idx, uint32_t fp) {
+static int parse_output(rd_t *r, unsigned int idx, uint32_t fp) {
     kv_t kv[MAX_KV];
     size_t n, end;
     plan_output_t *o = &plan.outputs[idx];
@@ -383,7 +383,7 @@ static int parse_output(rd_t *r, unsigned idx, uint32_t fp) {
 unsigned char *EXPORT(parser_input)(void) {
     return in_buf;
 }
-unsigned EXPORT(parser_input_cap)(void) {
+unsigned int EXPORT(parser_input_cap)(void) {
     return PSBT_MAX;
 }
 plan_t *EXPORT(parser_plan)(void) {
@@ -401,15 +401,15 @@ unsigned char *EXPORT(parser_nonce_points)(void) {
 unsigned char *EXPORT(parser_output)(void) {
     return out_buf;
 }
-unsigned EXPORT(parser_prevtx_off)(unsigned i) {
+unsigned int EXPORT(parser_prevtx_off)(unsigned int i) {
     return i < PLAN_MAX_INPUTS ? prevtx_off[i] : 0;
 }
-unsigned EXPORT(parser_prevtx_len)(unsigned i) {
+unsigned int EXPORT(parser_prevtx_len)(unsigned int i) {
     return i < PLAN_MAX_INPUTS ? prevtx_len[i] : 0;
 }
 
 /* Called after the host writes len bytes to parser_input(). fp is the signer's master fingerprint (not a secret) */
-int EXPORT(parser_parse)(unsigned len, unsigned fp) {
+int EXPORT(parser_parse)(unsigned int len, unsigned int fp) {
     static const uint8_t magic[5] = {'p', 's', 'b', 't', 0xff};
     rd_t r = {in_buf, len, 0, 0};
     int rc;
@@ -424,9 +424,9 @@ int EXPORT(parser_parse)(unsigned len, unsigned fp) {
     in_len = len;
     if (len < 5 || memcmp(rd_take(&r, 5), magic, 5)) return P_ERR_MAGIC;
     if ((rc = parse_global(&r))) return rc;
-    for (unsigned i = 0; i < plan.n_inputs; i++)
+    for (unsigned int i = 0; i < plan.n_inputs; i++)
         if ((rc = parse_input(&r, i, fp))) return rc;
-    for (unsigned i = 0; i < plan.n_outputs; i++)
+    for (unsigned int i = 0; i < plan.n_outputs; i++)
         if ((rc = parse_output(&r, i, fp))) return rc;
     if (r.pos != len) return P_ERR_FORMAT;
     plan.magic = PLAN_MAGIC;
@@ -436,13 +436,13 @@ int EXPORT(parser_parse)(unsigned len, unsigned fp) {
 }
 
 /* Called after the host writes n signatures to parser_sigs(). Returns the signed PSBT length, or a negative value */
-int EXPORT(parser_finalize)(unsigned n) {
+int EXPORT(parser_finalize)(unsigned int n) {
     int by_input[PLAN_MAX_INPUTS];
     size_t o = 0, prev = 0;
 
     if (!parsed || n > PLAN_MAX_INPUTS) return -P_ERR_SIG;
-    for (unsigned i = 0; i < PLAN_MAX_INPUTS; i++) by_input[i] = -1;
-    for (unsigned k = 0; k < n; k++) {
+    for (unsigned int i = 0; i < PLAN_MAX_INPUTS; i++) by_input[i] = -1;
+    for (unsigned int k = 0; k < n; k++) {
         const plan_sig_t *s = &sigs[k];
         const plan_input_t *in;
         if (s->input >= plan.n_inputs || by_input[s->input] >= 0) return -P_ERR_SIG;
@@ -454,7 +454,7 @@ int EXPORT(parser_finalize)(unsigned n) {
         if (memcmp(points[k], (const uint8_t[33]){0}, 33) && points[k][0] != 2 && points[k][0] != 3) return -P_ERR_SIG;
         by_input[s->input] = (int)k;
     }
-    for (unsigned i = 0; i < plan.n_inputs; i++) {
+    for (unsigned int i = 0; i < plan.n_inputs; i++) {
         const plan_sig_t *s;
         if (by_input[i] < 0) continue;
         s = &sigs[by_input[i]];
@@ -499,7 +499,7 @@ void EXPORT(parser_ur_reset)(void) {
 
 /* Called after the host writes one QR payload (len bytes) to parser_input(). Returns the completed payload
  * length with PSBT, bytes, or crypto-output CBOR at parser_input(); 0 while incomplete, negative on rejection. */
-int EXPORT(parser_ur_receive)(unsigned len) {
+int EXPORT(parser_ur_receive)(unsigned int len) {
     const uint8_t *psbt;
     size_t psbt_len;
     long n;
@@ -524,13 +524,13 @@ int EXPORT(parser_ur_receive)(unsigned len) {
 }
 
 /* What the last complete UR was: 0 PSBT, 1 bytes, 2 crypto-output CBOR */
-unsigned EXPORT(parser_ur_kind)(void) {
-    return (unsigned)ur_kind;
+unsigned int EXPORT(parser_ur_kind)(void) {
+    return (unsigned int)ur_kind;
 }
 
 /* Parts expected (upper 16 bits; 0 until the first multipart part) and fragments recovered (lower 16 bits) */
-unsigned EXPORT(parser_ur_progress)(void) {
-    unsigned expected, received;
+unsigned int EXPORT(parser_ur_progress)(void) {
+    unsigned int expected, received;
     ur_decoder_progress(&expected, &received);
     return expected << 16 | received;
 }
@@ -538,7 +538,7 @@ unsigned EXPORT(parser_ur_progress)(void) {
 /* Encodes the first len bytes of parser_output() (the signed PSBT from parser_finalize()) as a crypto-psbt UR
  * with fragments of at most max_fragment_len bytes. Returns the number of pure parts, or a negative UR_ERR_*.
  * Part text is written over parser_input(), so parse again before another parser_finalize() */
-int EXPORT(parser_ur_encode_start)(unsigned len, unsigned max_fragment_len) {
+int EXPORT(parser_ur_encode_start)(unsigned int len, unsigned int max_fragment_len) {
     if (len > sizeof(out_buf)) return UR_ERR_LIMIT;
     parsed = 0;
     return (int)ur_encoder_start("crypto-psbt", out_buf, len, 1, max_fragment_len);
@@ -546,7 +546,7 @@ int EXPORT(parser_ur_encode_start)(unsigned len, unsigned max_fragment_len) {
 
 /* The same for CBOR the host wrote to parser_output() as it is: kind 1 crypto-account, 2 crypto-output, the
  * public keys signer.wasm describes */
-int EXPORT(parser_ur_encode_cbor)(unsigned kind, unsigned len, unsigned max_fragment_len) {
+int EXPORT(parser_ur_encode_cbor)(unsigned int kind, unsigned int len, unsigned int max_fragment_len) {
     if (len > sizeof(out_buf) || kind < 1 || kind > 2) return UR_ERR_LIMIT;
     parsed = 0;
     return (int)ur_encoder_start(kind == 1 ? "crypto-account" : "crypto-output", out_buf, len, 0, max_fragment_len);

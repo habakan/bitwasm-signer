@@ -174,7 +174,7 @@ static struct {
     uint32_t seq_len, message_len, checksum;
     size_t frag_len, slots;
     uint8_t have[BITS_BYTES];
-    unsigned received, evict;
+    unsigned int received, evict;
     long done;
     mixed_t mixed[UR_MAX_MIXED];
     uint8_t pool[UR_MIXED_POOL];
@@ -298,7 +298,7 @@ const uint8_t *ur_decoder_message(void) {
     return d.work;
 }
 
-void ur_decoder_progress(unsigned *expected, unsigned *received) {
+void ur_decoder_progress(unsigned int *expected, unsigned int *received) {
     *expected = d.multipart ? d.seq_len : 0;
     *received = d.received;
 }

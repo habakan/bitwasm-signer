@@ -57,7 +57,7 @@ int main(void) {
     CHECK(seedqr_decode((const uint8_t *)d12, 47, out, sizeof(out)) == 0, "odd length rejected");
     CHECK(seedqr_decode((const uint8_t *)d12, 48, out, 50) == 0, "small buffer rejected");
 
-    for (unsigned i = 0; i < sizeof(seedqr_vectors) / sizeof(seedqr_vectors[0]); i++) {
+    for (unsigned int i = 0; i < sizeof(seedqr_vectors) / sizeof(seedqr_vectors[0]); i++) {
         const char *d = seedqr_vectors[i].digits, *m = seedqr_vectors[i].mnemonic;
         CHECK(seedqr_decode((const uint8_t *)d, strlen(d), out, sizeof(out)) > 0 && !strcmp(out, m),
               "published vector %u from digits", i + 1);
@@ -66,7 +66,7 @@ int main(void) {
     }
 
     /* encoding: the words back into both forms, and those back into the words */
-    for (unsigned i = 0; i < sizeof(seedqr_vectors) / sizeof(seedqr_vectors[0]); i++) {
+    for (unsigned int i = 0; i < sizeof(seedqr_vectors) / sizeof(seedqr_vectors[0]); i++) {
         const char *m = seedqr_vectors[i].mnemonic, *d = seedqr_vectors[i].digits;
         uint8_t qr[96];
         int n = seedqr_encode((const uint8_t *)m, strlen(m), 0, qr, sizeof(qr));

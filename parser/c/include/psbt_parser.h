@@ -23,16 +23,16 @@ enum {
 };
 
 unsigned char *parser_input(void);
-unsigned parser_input_cap(void);
+unsigned int parser_input_cap(void);
 /* fingerprint is the signer's master fingerprint (not a secret). Only derivations with it become key candidates */
-int parser_parse(unsigned len, unsigned fingerprint);
+int parser_parse(unsigned int len, unsigned int fingerprint);
 plan_t *parser_plan(void);
 /* Offset and length of input i's non_witness_utxo within parser_input(); length 0 if absent */
-unsigned parser_prevtx_off(unsigned i);
-unsigned parser_prevtx_len(unsigned i);
+unsigned int parser_prevtx_off(unsigned int i);
+unsigned int parser_prevtx_len(unsigned int i);
 plan_sig_t *parser_sigs(void);
 /* Inserts the n signatures written to parser_sigs() and returns the signed PSBT length, or -P_ERR_SIG */
-int parser_finalize(unsigned n);
+int parser_finalize(unsigned int n);
 /* Anti-exfil, 16 x 33 bytes each. nonces: per input, 1 then the coordinator's n from the proprietary field
  * {0xfc, 8, "jitsu-in", 1}, for signer_nonces(). points: the host writes signer_nonce_points() here before
  * parser_finalize(), which adds each non-zero Q as {0xfc, 8, "jitsu-in", 2, pubkey}, the x-only key for P2TR */
@@ -44,15 +44,15 @@ unsigned char *parser_output(void);
  * A positive result is the payload length, with PSBT/bytes/crypto-output CBOR in parser_input().
  * Negative results are UR_ERR_* from ur.h */
 void parser_ur_reset(void);
-int parser_ur_receive(unsigned len);
-unsigned parser_ur_progress(void);
+int parser_ur_receive(unsigned int len);
+unsigned int parser_ur_progress(void);
 /* 0 PSBT, 1 bytes, 2 crypto-output CBOR */
-unsigned parser_ur_kind(void);
+unsigned int parser_ur_kind(void);
 /* Signed PSBT as an animated QR: parser_ur_encode_start(len returned by parser_finalize(), max fragment bytes),
  * then parser_ur_encode_next() for each frame, reading the text from parser_input() */
-int parser_ur_encode_start(unsigned len, unsigned max_fragment_len);
+int parser_ur_encode_start(unsigned int len, unsigned int max_fragment_len);
 /* Kind 1 crypto-account or 2 crypto-output, from len bytes of CBOR the host wrote to parser_output() */
-int parser_ur_encode_cbor(unsigned kind, unsigned len, unsigned max_fragment_len);
+int parser_ur_encode_cbor(unsigned int kind, unsigned int len, unsigned int max_fragment_len);
 int parser_ur_encode_next(void);
 
 #endif

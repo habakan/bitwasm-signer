@@ -71,17 +71,17 @@ void core_unload(void);
 uint32_t core_fingerprint(void);
 int core_review(const plan_t *p, const core_prevtx_t prev[PLAN_MAX_INPUTS], core_review_t *r);
 int core_display(const plan_t *p, const core_review_t *r, core_display_t *d);
-int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned *n_sigs);
+int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned int *n_sigs);
 /* Anti-exfil: a coordinator's 32 random bytes for input i, used by the next core_sign() and then forgotten. That
  * input's nonce is then k = q + H(Q, m, n), and core_nonce_point(k) is the Q of sigs[k] (33 bytes, zero if none) */
-int core_set_host_nonce(unsigned i, const uint8_t n[32]);
-const uint8_t *core_nonce_point(unsigned k);
+int core_set_host_nonce(unsigned int i, const uint8_t n[32]);
+const uint8_t *core_nonce_point(unsigned int k);
 /* BTC with eight decimals (60000 -> "0.00060000") */
 void core_format_btc(uint64_t sats, char out[21]);
 
 /* The BIP85 child mnemonic (English, 12, 18 or 24 words, index below 2^31) of the loaded seed. Returns
  * its length, NUL-terminated in out, or 0 */
-int core_bip85_mnemonic(unsigned words, uint32_t index, char *out, size_t cap);
+int core_bip85_mnemonic(unsigned int words, uint32_t index, char *out, size_t cap);
 
 /* Where on m/purpose'/coin'/account' an address is: receive then change, indices below count, as chain << 20 |
  * index, or -CORE_ERR_*. 3/2 (P2SH) is purpose 49, bc1q/tb1q 84, bc1p/tb1p 86; any other is CORE_ERR_FORMAT */
@@ -101,12 +101,12 @@ typedef struct {
     uint8_t text_kind;
     char text[2 * CORE_MESSAGE_MAX + 1];
 } core_message_t;
-int core_message_review(const uint8_t *msg, size_t len, unsigned purpose, uint32_t account, uint32_t chain,
+int core_message_review(const uint8_t *msg, size_t len, unsigned int purpose, uint32_t account, uint32_t chain,
                         uint32_t index, core_message_t *out);
 /* 65 bytes: the BIP137 header (35-38 P2SH-P2WPKH, 39-42 P2WPKH), then r and s */
 int core_message_sign(uint8_t sig[65]);
 
-int core_account_xpub(unsigned purpose, uint32_t account, char out[CORE_XPUB_MAX], char desc[CORE_DESC_MAX]);
+int core_account_xpub(unsigned int purpose, uint32_t account, char out[CORE_XPUB_MAX], char desc[CORE_DESC_MAX]);
 
 /* Registers a P2WSH sortedmulti wallet of at most three keys from a descriptor, a BSMS 1.0 record or a Coldcard
  * setup file. From then on its inputs are signed only when their witness script is the wallet's, and its outputs

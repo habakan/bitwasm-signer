@@ -46,14 +46,14 @@ static int spk_type(const plan_script_t *s) {
 }
 
 /* OP_m, n distinct compressed keys, OP_n, OP_CHECKMULTISIG with 1 <= m <= n <= 3. Returns n, or 0 otherwise */
-static unsigned multisig_keys(const plan_wscript_t *w) {
-    unsigned n = w->len >= 3 ? (w->len - 3u) / 34u : 0, m = w->bytes[0] - 0x50u;
+static unsigned int multisig_keys(const plan_wscript_t *w) {
+    unsigned int n = w->len >= 3 ? (w->len - 3u) / 34u : 0, m = w->bytes[0] - 0x50u;
     if (n == 0 || w->len != 3 + 34 * n || m < 1 || m > n || w->bytes[w->len - 2] != 0x50 + n ||
         w->bytes[w->len - 1] != 0xae)
         return 0;
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned int i = 0; i < n; i++) {
         if (w->bytes[1 + 34 * i] != 33 || (w->bytes[2 + 34 * i] != 2 && w->bytes[2 + 34 * i] != 3)) return 0;
-        for (unsigned k = 0; k < i; k++)
+        for (unsigned int k = 0; k < i; k++)
             if (!memcmp(w->bytes + 2 + 34 * i, w->bytes + 2 + 34 * k, 33)) return 0;
     }
     return n;
@@ -95,10 +95,10 @@ static int owns(const plan_keypath_t *key, const plan_script_t *spk, const plan_
     } else if (type == SPK_P2TR && taproot_tweak(node->key, xonly, &kp)) {
         ok = !memcmp(xonly, spk->bytes + 2, 32);
     } else if (type == SPK_P2WSH && ws && bip32_pubkey(ctx, node->key, pub)) {
-        unsigned n = multisig_keys(ws);
+        unsigned int n = multisig_keys(ws);
         sha256(ws->bytes, ws->len, mine);
         ok = n && !memcmp(mine, spk->bytes + 2, 32);
-        for (unsigned i = 0, found = 0; ok && i <= n; i++) {
+        for (unsigned int i = 0, found = 0; ok && i <= n; i++) {
             if (i == n) ok = found;
             else found |= !memcmp(ws->bytes + 2 + 34 * i, pub, 33);
         }
@@ -110,14 +110,14 @@ static int owns(const plan_keypath_t *key, const plan_script_t *spk, const plan_
 
 static int script_ok(const plan_script_t *s) {
     if (s->len > PLAN_MAX_SPK) return 0;
-    for (unsigned i = s->len; i < PLAN_MAX_SPK; i++)
+    for (unsigned int i = s->len; i < PLAN_MAX_SPK; i++)
         if (s->bytes[i]) return 0;
     return 1;
 }
 
 static int keypath_ok(const plan_keypath_t *k) {
     if (k->depth > PLAN_MAX_DEPTH || (k->depth == 0 && k->fingerprint)) return 0;
-    for (unsigned i = k->depth; i < PLAN_MAX_DEPTH; i++)
+    for (unsigned int i = k->depth; i < PLAN_MAX_DEPTH; i++)
         if (k->path[i]) return 0;
     return 1;
 }
@@ -126,7 +126,7 @@ static int format_ok(const plan_t *p) {
     if (p->magic != PLAN_MAGIC || p->version != PLAN_VERSION) return 0;
     if (p->n_inputs == 0 || p->n_inputs > PLAN_MAX_INPUTS || p->n_outputs == 0 || p->n_outputs > PLAN_MAX_OUTPUTS)
         return 0;
-    for (unsigned i = 0; i < PLAN_MAX_INPUTS; i++) {
+    for (unsigned int i = 0; i < PLAN_MAX_INPUTS; i++) {
         const plan_input_t *in = &p->inputs[i];
         if (i >= p->n_inputs) {
             static const plan_input_t zero;
@@ -136,15 +136,15 @@ static int format_ok(const plan_t *p) {
         if (in->amount > MAX_MONEY || !script_ok(&in->spk) || !keypath_ok(&in->key)) return 0;
         if (in->key.depth == 0 && in->sighash_type) return 0;
     }
-    for (unsigned i = 0; i < PLAN_MAX_INPUTS; i++) {
+    for (unsigned int i = 0; i < PLAN_MAX_INPUTS; i++) {
         const plan_wscript_t *w = &p->wscripts[i];
         if (w->len > PLAN_MAX_WSCRIPT) return 0;
-        for (unsigned k = w->len; k < PLAN_MAX_WSCRIPT; k++)
+        for (unsigned int k = w->len; k < PLAN_MAX_WSCRIPT; k++)
             if (w->bytes[k]) return 0;
         if (w->len && (i >= p->n_inputs || spk_type(&p->inputs[i].spk) != SPK_P2WSH || !p->inputs[i].key.depth))
             return 0;
     }
-    for (unsigned i = 0; i < PLAN_MAX_OUTPUTS; i++) {
+    for (unsigned int i = 0; i < PLAN_MAX_OUTPUTS; i++) {
         const plan_output_t *o = &p->outputs[i];
         if (i >= p->n_outputs) {
             static const plan_output_t zero;
@@ -199,7 +199,7 @@ static int in_wallet(const plan_keypath_t *k, const plan_wscript_t *ws) {
 static int wallet_owner(const plan_t *p, const core_review_t *r, const plan_output_t *o) {
     uint8_t h[32];
     if (wallet_ours < 0 || !in_wallet_at(&o->key, NULL, h) || memcmp(h, o->spk.bytes + 2, 32)) return CORE_OUT_EXTERNAL;
-    for (unsigned i = 0; i < p->n_inputs; i++)
+    for (unsigned int i = 0; i < p->n_inputs; i++)
         if (r->will_sign[i] && spk_type(&p->inputs[i].spk) == SPK_P2WSH)
             return o->key.path[wallet.keys[wallet_ours].depth] ? CORE_OUT_CHANGE : CORE_OUT_SELF;
     return CORE_OUT_EXTERNAL;
@@ -220,7 +220,7 @@ static int output_owner(const plan_t *p, const core_review_t *r, const plan_outp
     if (!purpose || k->depth != 5 || k->path[0] != purpose || k->path[1] != ((uint32_t)network | H) ||
         !(k->path[2] & H) || k->path[3] > 1 || k->path[4] >= MAX_ADDRESS_INDEX)
         return CORE_OUT_EXTERNAL;
-    for (unsigned i = 0; i < p->n_inputs; i++) {
+    for (unsigned int i = 0; i < p->n_inputs; i++) {
         const plan_keypath_t *ik = &p->inputs[i].key;
         if (r->will_sign[i] && ik->depth == 5 && !memcmp(ik->path, k->path, 3 * sizeof(uint32_t))) {
             int ok = owns(k, &o->spk, NULL, &node);
@@ -281,7 +281,7 @@ int core_review(const plan_t *p, const core_prevtx_t prev[PLAN_MAX_INPUTS], core
     if (!seed_loaded) return CORE_ERR_NO_SEED;
     if (!format_ok(p)) return CORE_ERR_FORMAT;
 
-    for (unsigned i = 0; i < p->n_inputs; i++) {
+    for (unsigned int i = 0; i < p->n_inputs; i++) {
         const plan_input_t *in = &p->inputs[i];
         int type = spk_type(&in->spk);
         r->total_in += in->amount;
@@ -300,7 +300,7 @@ int core_review(const plan_t *p, const core_prevtx_t prev[PLAN_MAX_INPUTS], core
 
     /* BIP143 commits only to the amount of the input being signed, so with two or more inputs every
      * amount is checked against the previous transaction it claims to come from */
-    for (unsigned i = 0; i < p->n_inputs; i++) {
+    for (unsigned int i = 0; i < p->n_inputs; i++) {
         const core_prevtx_t *pv = prev ? &prev[i] : NULL;
         if (pv && pv->raw) {
             if (!prevtx_ok(&p->inputs[i], pv)) return CORE_ERR_PREVTX_MISMATCH;
@@ -309,7 +309,7 @@ int core_review(const plan_t *p, const core_prevtx_t prev[PLAN_MAX_INPUTS], core
         }
     }
 
-    for (unsigned i = 0; i < p->n_outputs; i++) {
+    for (unsigned int i = 0; i < p->n_outputs; i++) {
         r->total_out += p->outputs[i].amount;
         if (r->total_out > MAX_MONEY) return CORE_ERR_FORMAT;
         r->owner[i] = (uint8_t)output_owner(p, r, &p->outputs[i]);
@@ -346,7 +346,7 @@ int core_display(const plan_t *p, const core_review_t *r, core_display_t *d) {
     if (!reviewed || memcmp(h, reviewed_hash, 32)) return CORE_ERR_NOT_REVIEWED;
     d->fee = r->fee;
     d->n_outputs = p->n_outputs;
-    for (unsigned i = 0; i < p->n_outputs; i++) {
+    for (unsigned int i = 0; i < p->n_outputs; i++) {
         const plan_script_t *s = &p->outputs[i].spk;
         core_display_output_t *o = &d->outputs[i];
         o->amount = p->outputs[i].amount;
@@ -389,7 +389,7 @@ static int exfil_nonce(uint8_t k[32], const uint8_t m[32], const uint8_t x[32], 
 }
 
 static int exfil_ecdsa(uint8_t *nonce32, const uint8_t *msg32, const uint8_t *key32, const uint8_t *algo16, void *data,
-                       unsigned attempt) {
+                       unsigned int attempt) {
     (void)algo16;
     return attempt == 0 && exfil_nonce(nonce32, msg32, key32, data);
 }
@@ -400,7 +400,7 @@ static int exfil_schnorr(uint8_t *nonce32, const uint8_t *msg, size_t msglen, co
     return msglen == 32 && exfil_nonce(nonce32, msg, key32, data);
 }
 
-static int sign_input(const plan_t *p, unsigned i, core_sig_t *s, uint8_t point[33]) {
+static int sign_input(const plan_t *p, unsigned int i, core_sig_t *s, uint8_t point[33]) {
     const plan_input_t *in = &p->inputs[i];
     uint8_t digest[32], xonly[32];
     secp256k1_ecdsa_signature sig;
@@ -460,18 +460,18 @@ static int sign_input(const plan_t *p, unsigned i, core_sig_t *s, uint8_t point[
     return ok;
 }
 
-int core_set_host_nonce(unsigned i, const uint8_t n[32]) {
+int core_set_host_nonce(unsigned int i, const uint8_t n[32]) {
     if (i >= PLAN_MAX_INPUTS) return 0;
     memcpy(host_nonce[i], n, 32);
     host_nonce_set[i] = 1;
     return 1;
 }
 
-const uint8_t *core_nonce_point(unsigned k) {
+const uint8_t *core_nonce_point(unsigned int k) {
     return k < PLAN_MAX_INPUTS ? nonce_points[k] : NULL;
 }
 
-static int sign_all(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned *n_sigs) {
+static int sign_all(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned int *n_sigs) {
     uint8_t h[32], blind[32];
 
     *n_sigs = 0;
@@ -484,7 +484,7 @@ static int sign_all(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_IN
     if (rng && rng(blind, 32) && !secp256k1_context_randomize(ctx, blind)) return CORE_ERR_CRYPTO;
     wipe(blind, sizeof(blind));
     /* The hash above already proved this is the plan review saw, so only inputs review confirmed get here */
-    for (unsigned i = 0; i < p->n_inputs; i++) {
+    for (unsigned int i = 0; i < p->n_inputs; i++) {
         const plan_input_t *in = &p->inputs[i];
         if (in->key.depth == 0 || in->key.fingerprint != master_fp) continue;
         if (!sign_input(p, i, &sigs[*n_sigs], nonce_points[*n_sigs])) {
@@ -499,7 +499,7 @@ static int sign_all(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_IN
     return CORE_OK;
 }
 
-int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned *n_sigs) {
+int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned int *n_sigs) {
     const int rc = sign_all(p, rng, sigs, n_sigs);
     memset(host_nonce_set, 0, sizeof(host_nonce_set)); /* a failed attempt must not hand its n to the next */
     return rc;
@@ -510,7 +510,7 @@ int core_find_address(const char *addr, size_t len, uint32_t account, uint32_t c
     const int testnet = network == CORE_TESTNET;
     char want[ADDRESS_MAX], got[ADDRESS_MAX];
     int upper = 0, lower = 0, other = 0, rc = -CORE_ERR_NOT_FOUND;
-    unsigned purpose, need;
+    unsigned int purpose, need;
     uint32_t path[3];
     bip32_node_t acct, chain, child;
     secp256k1_keypair kp;
@@ -564,7 +564,7 @@ int core_find_address(const char *addr, size_t len, uint32_t account, uint32_t c
     return rc;
 }
 
-int core_bip85_mnemonic(unsigned words, uint32_t index, char *out, size_t cap) {
+int core_bip85_mnemonic(unsigned int words, uint32_t index, char *out, size_t cap) {
     return seed_loaded ? bip85_bip39(ctx, &master, words, index, out, cap) : 0;
 }
 
@@ -577,7 +577,7 @@ static void msg_binding(uint8_t out[32]) {
     sha256_final(&h, out);
 }
 
-int core_message_review(const uint8_t *m, size_t len, unsigned purpose, uint32_t account, uint32_t chain,
+int core_message_review(const uint8_t *m, size_t len, unsigned int purpose, uint32_t account, uint32_t chain,
                         uint32_t index, core_message_t *out) {
     bip32_node_t node;
     uint8_t pub[33], spk[23];
@@ -646,12 +646,12 @@ int core_message_sign(uint8_t sig[65]) {
 }
 
 /* m/purpose'/coin'/account' (BIP48 adds 2' for P2WSH) serialized as an xpub, with its path */
-static int account_key(unsigned purpose, uint32_t account, uint32_t path[4], unsigned *depth, uint8_t ser[78]) {
+static int account_key(unsigned int purpose, uint32_t account, uint32_t path[4], unsigned int *depth, uint8_t ser[78]) {
     const uint32_t coin = network == CORE_TESTNET ? 1u : 0u;
     const uint32_t ver = network == CORE_TESTNET ? 0x043587cfu : 0x0488b21eu;
     bip32_node_t parent, node;
     uint8_t pub[33], h[20];
-    unsigned o = 0;
+    unsigned int o = 0;
     int ok;
 
     *depth = purpose == 48 ? 4 : 3;
@@ -674,10 +674,10 @@ static int account_key(unsigned purpose, uint32_t account, uint32_t path[4], uns
 
 /* The account xpub (m/purpose'/coin'/account') and an output descriptor built from it. Hand these to
  * the PC and it can watch the wallet without ever holding a key */
-int core_account_xpub(unsigned purpose, uint32_t account, char out[CORE_XPUB_MAX], char desc[CORE_DESC_MAX]) {
+int core_account_xpub(unsigned int purpose, uint32_t account, char out[CORE_XPUB_MAX], char desc[CORE_DESC_MAX]) {
     const uint32_t coin = network == CORE_TESTNET ? 1u : 0u;
     uint32_t path[4];
-    unsigned depth;
+    unsigned int depth;
     uint8_t ser[78];
     char fp[9], acct[11];
 
@@ -689,12 +689,12 @@ int core_account_xpub(unsigned purpose, uint32_t account, char out[CORE_XPUB_MAX
     for (int i = 0; i < 8; i++) fp[i] = "0123456789abcdef"[master_fp >> (28 - 4 * i) & 15];
     fp[8] = 0;
     {
-        unsigned n = 0;
+        unsigned int n = 0;
         char rev[10];
         uint32_t a = account;
         do rev[n++] = (char)('0' + a % 10), a /= 10;
         while (a);
-        for (unsigned i = 0; i < n; i++) acct[i] = rev[n - 1 - i];
+        for (unsigned int i = 0; i < n; i++) acct[i] = rev[n - 1 - i];
         acct[n] = 0;
     }
     /* An output descriptor Sparrow and others read as is; <0;1> covers receive and change in one line. For BIP48
@@ -718,7 +718,7 @@ int core_account_xpub(unsigned purpose, uint32_t account, char out[CORE_XPUB_MAX
                                : purpose == 48 ? "/<0;1>/*"
                                                : "/<0;1>/*)"};
         size_t o = 0;
-        for (unsigned k = 0; k < sizeof(parts) / sizeof(*parts); k++) {
+        for (unsigned int k = 0; k < sizeof(parts) / sizeof(*parts); k++) {
             size_t n = strlen(parts[k]);
             if (o + n + 1 > CORE_DESC_MAX) return CORE_ERR_CRYPTO;
             memcpy(desc + o, parts[k], n);
@@ -742,7 +742,7 @@ int core_multisig_load(const char *text, size_t len, core_multisig_t *out) {
     if (!ms_parse(text, len, network == CORE_TESTNET, &wallet, stated)) return CORE_ERR_FORMAT;
     /* Ours is the one key the seed re-derives at its origin, chain code and all. A fingerprint that matches with
      * another key is most likely the wrong passphrase */
-    for (unsigned i = 0; i < wallet.n; i++) {
+    for (unsigned int i = 0; i < wallet.n; i++) {
         const ms_key_t *k = &wallet.keys[i];
         if (k->fingerprint != master_fp) continue;
         if (ours >= 0 || !bip32_derive(ctx, &master, k->path, k->depth, &node) || !bip32_pubkey(ctx, node.key, pub) ||
@@ -756,7 +756,7 @@ int core_multisig_load(const char *text, size_t len, core_multisig_t *out) {
     if (stated[0] && strcmp(stated, out->receive)) goto done; /* the coordinator derived some other wallet */
     if (!ms_descriptor(&wallet, network == CORE_TESTNET, out->descriptor)) goto done;
     out->threshold = wallet.threshold, out->n = wallet.n, out->ours = (uint8_t)ours;
-    for (unsigned i = 0; i < wallet.n; i++) out->fingerprints[i] = wallet.keys[i].fingerprint;
+    for (unsigned int i = 0; i < wallet.n; i++) out->fingerprints[i] = wallet.keys[i].fingerprint;
     wallet_ours = ours;
     rc = CORE_OK;
 done:
@@ -782,11 +782,11 @@ void core_multisig_unload(void) {
 /* crypto-account: the master fingerprint and, for the account, sh(wpkh()), wpkh(), tr() and the BIP48 key as
  * wsh(cosigner()), each tagged crypto-output (308) */
 int core_account_cbor(uint32_t account, uint8_t *out, size_t cap) {
-    static const unsigned purposes[] = {49, 84, 86, 48};
-    static const unsigned tags[][2] = {{400, 404}, {404, 0}, {409, 0}, {401, 410}};
+    static const unsigned int purposes[] = {49, 84, 86, 48};
+    static const unsigned int tags[][2] = {{400, 404}, {404, 0}, {409, 0}, {401, 410}};
     cbor_t c = {out, 0, cap};
     uint32_t path[4];
-    unsigned depth;
+    unsigned int depth;
     uint8_t ser[78];
 
     if (!seed_loaded) return -CORE_ERR_NO_SEED;
@@ -794,10 +794,10 @@ int core_account_cbor(uint32_t account, uint8_t *out, size_t cap) {
     cbor_head(&c, CBOR_MAP, 2);
     cbor_head(&c, CBOR_UINT, 1), cbor_head(&c, CBOR_UINT, master_fp);
     cbor_head(&c, CBOR_UINT, 2), cbor_head(&c, CBOR_ARRAY, 4);
-    for (unsigned i = 0; i < 4; i++) {
+    for (unsigned int i = 0; i < 4; i++) {
         if (!account_key(purposes[i], account, path, &depth, ser)) return -CORE_ERR_CRYPTO;
         cbor_head(&c, CBOR_TAG, 308);
-        for (unsigned t = 0; t < 2 && tags[i][t]; t++) cbor_head(&c, CBOR_TAG, tags[i][t]);
+        for (unsigned int t = 0; t < 2 && tags[i][t]; t++) cbor_head(&c, CBOR_TAG, tags[i][t]);
         cbor_hdkey(&c, ser, master_fp, path, depth, network == CORE_TESTNET, 0);
     }
     return c.n > cap ? -CORE_ERR_FORMAT : (int)c.n;
@@ -811,7 +811,7 @@ int core_multisig_cbor(uint8_t *out, size_t cap) {
     cbor_head(&c, CBOR_MAP, 2);
     cbor_head(&c, CBOR_UINT, 1), cbor_head(&c, CBOR_UINT, wallet.threshold);
     cbor_head(&c, CBOR_UINT, 2), cbor_head(&c, CBOR_ARRAY, wallet.n);
-    for (unsigned i = 0; i < wallet.n; i++) {
+    for (unsigned int i = 0; i < wallet.n; i++) {
         const ms_key_t *k = &wallet.keys[i];
         cbor_hdkey(&c, k->ser, k->fingerprint, k->path, k->depth, network == CORE_TESTNET, 1);
     }

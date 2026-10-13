@@ -132,8 +132,8 @@ void hmac_sha512_final(hmac_sha512_ctx *h, unsigned char out[64]) {
 
 /* dklen fixed at 64 (one block) for BIP39. Reusing the state after the inner and outer pads halves
  * the number of compressions */
-void pbkdf2_hmac_sha512(const unsigned char *pw, size_t pwlen, const unsigned char *salt, size_t saltlen, unsigned iter,
-                        unsigned char out[64]) {
+void pbkdf2_hmac_sha512(const unsigned char *pw, size_t pwlen, const unsigned char *salt, size_t saltlen,
+                        unsigned int iter, unsigned char out[64]) {
     hmac_sha512_ctx base, h;
     unsigned char u[64];
     static const unsigned char one[4] = {0, 0, 0, 1};
@@ -143,7 +143,7 @@ void pbkdf2_hmac_sha512(const unsigned char *pw, size_t pwlen, const unsigned ch
     sha512_update(&h.inner, one, 4);
     hmac_sha512_final(&h, u);
     memcpy(out, u, 64);
-    for (unsigned i = 1; i < iter; i++) {
+    for (unsigned int i = 1; i < iter; i++) {
         h = base;
         sha512_update(&h.inner, u, 64);
         hmac_sha512_final(&h, u);

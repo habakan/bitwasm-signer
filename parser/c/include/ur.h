@@ -51,7 +51,7 @@ const uint8_t *ur_decoder_message(void);
 /* The payload of a message that is exactly one CBOR byte string; returns 0 otherwise */
 int ur_cbor_bytes(const uint8_t *m, size_t n, const uint8_t **data, size_t *len);
 /* Parts expected (0 until the first multipart part) and distinct fragments recovered so far */
-void ur_decoder_progress(unsigned *expected, unsigned *received);
+void ur_decoder_progress(unsigned int *expected, unsigned int *received);
 
 /* Encoder for a message that is a CBOR byte string holding data (as for crypto-psbt) or, without wrap, data
  * that is CBOR already; built on the fly from data without copying. Parts follow the reference encoder:

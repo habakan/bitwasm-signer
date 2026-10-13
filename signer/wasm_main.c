@@ -117,7 +117,7 @@ static int seed_from(const uint8_t *mn, size_t mn_len, const uint8_t *pass, size
 
 /* English BIP39 only, and the checksum has to hold: a typo is refused rather than becoming a wallet.
  * Whitespace and capitals are normalised first; the passphrase is used exactly as given */
-int EXPORT(signer_seed_from_mnemonic)(unsigned mn_len, unsigned pass_len) {
+int EXPORT(signer_seed_from_mnemonic)(unsigned int mn_len, unsigned int pass_len) {
     size_t n = 0;
     int ok = mn_len <= sizeof(in) && pass_len <= sizeof(in) - mn_len;
     if (ok) n = bip39_normalize(in, mn_len, in);
@@ -128,7 +128,7 @@ int EXPORT(signer_seed_from_mnemonic)(unsigned mn_len, unsigned pass_len) {
 
 /* in holds the SeedQR payload, then the passphrase. The words are rebuilt here and never returned:
  * the host confirms what it loaded by showing the fingerprint */
-int EXPORT(signer_seed_from_seedqr)(unsigned qr_len, unsigned pass_len) {
+int EXPORT(signer_seed_from_seedqr)(unsigned int qr_len, unsigned int pass_len) {
     char mn[256];
     int n = 0, ok = 0;
     if (qr_len <= sizeof(in) && pass_len <= sizeof(in) - qr_len) n = seedqr_decode(in, qr_len, mn, sizeof(mn));
@@ -160,12 +160,12 @@ void EXPORT(signer_unload)(void) {
     wipe(cbor, sizeof(cbor));
 }
 
-unsigned EXPORT(signer_fingerprint)(void) {
+unsigned int EXPORT(signer_fingerprint)(void) {
     return core_fingerprint();
 }
 
 /* Where input i's non_witness_utxo sits inside prevtx_buf. A len of 0 means it has none */
-int EXPORT(signer_set_prevtx)(unsigned i, unsigned off, unsigned len) {
+int EXPORT(signer_set_prevtx)(unsigned int i, unsigned int off, unsigned int len) {
     if (i >= PLAN_MAX_INPUTS || off > PREVTX_MAX || len > PREVTX_MAX - off) return 0;
     prevtx[i].raw = len ? prevtx_buf + off : 0;
     prevtx[i].len = len;
@@ -183,25 +183,25 @@ int EXPORT(signer_display)(void) {
  * import — so the secp256k1 context is not blinded here. Power analysis is a concern on the device,
  * and the device runs this same core natively, where it does blind */
 int EXPORT(signer_sign)(void) {
-    unsigned n = 0;
+    unsigned int n = 0;
     int rc;
-    for (unsigned i = 0; i < PLAN_MAX_INPUTS; i++)
+    for (unsigned int i = 0; i < PLAN_MAX_INPUTS; i++)
         if (nonces[i][0] == 1) core_set_host_nonce(i, nonces[i] + 1);
     memset(nonces, 0, sizeof(nonces));
     rc = core_sign(&plan, 0, sigs, &n);
-    for (unsigned k = 0; k < PLAN_MAX_INPUTS; k++) memcpy(points[k], core_nonce_point(k), 33);
+    for (unsigned int k = 0; k < PLAN_MAX_INPUTS; k++) memcpy(points[k], core_nonce_point(k), 33);
     return rc ? -rc : (int)n;
 }
 
 /* On a refusal nothing from an earlier call is left to be read as this one's */
-int EXPORT(signer_xpub)(unsigned purpose, unsigned account) {
+int EXPORT(signer_xpub)(unsigned int purpose, unsigned int account) {
     int rc = core_account_xpub(purpose, account, xpub, desc);
     if (rc) wipe(xpub, sizeof(xpub)), wipe(desc, sizeof(desc));
     return rc;
 }
 
 /* in holds the address. Nothing secret, but cleared like every other use of in */
-int EXPORT(signer_find_address)(unsigned len, unsigned account, unsigned count) {
+int EXPORT(signer_find_address)(unsigned int len, unsigned int account, unsigned int count) {
     int rc = len <= sizeof(in) ? core_find_address((const char *)in, len, account, count) : -CORE_ERR_FORMAT;
     wipe(in, sizeof(in));
     return rc;
@@ -209,7 +209,7 @@ int EXPORT(signer_find_address)(unsigned len, unsigned account, unsigned count) 
 
 /* A new mnemonic from the entropy in in, or from dice rolls (1 to 6) in in. Returns its length in
  * signer_mnemonic_output(), or 0. Nothing is loaded: the words are to be written down first */
-int EXPORT(signer_mnemonic_from_entropy)(unsigned len) {
+int EXPORT(signer_mnemonic_from_entropy)(unsigned int len) {
     int n;
     wipe(mnemonic, sizeof(mnemonic));
     n = len <= sizeof(in) ? bip39_mnemonic_from_entropy(in, len, mnemonic, sizeof(mnemonic)) : 0;
@@ -218,7 +218,7 @@ int EXPORT(signer_mnemonic_from_entropy)(unsigned len) {
     return n;
 }
 
-int EXPORT(signer_mnemonic_from_dice)(unsigned len, unsigned words) {
+int EXPORT(signer_mnemonic_from_dice)(unsigned int len, unsigned int words) {
     int n;
     wipe(mnemonic, sizeof(mnemonic));
     n = len <= sizeof(in) ? bip39_mnemonic_from_dice(in, len, words, mnemonic, sizeof(mnemonic)) : 0;
@@ -229,7 +229,7 @@ int EXPORT(signer_mnemonic_from_dice)(unsigned len, unsigned words) {
 
 /* The SeedQR for the mnemonic in in, to show as a backup: the Standard digits, or the CompactSeedQR's
  * bytes. Returns its length in signer_seedqr_output(), or 0 */
-int EXPORT(signer_seedqr_from_mnemonic)(unsigned mn_len, int compact) {
+int EXPORT(signer_seedqr_from_mnemonic)(unsigned int mn_len, int compact) {
     int n;
     wipe(seedqr, sizeof(seedqr));
     n = mn_len <= sizeof(in) ? seedqr_encode(in, mn_len, compact, seedqr, sizeof(seedqr)) : 0;
@@ -239,7 +239,7 @@ int EXPORT(signer_seedqr_from_mnemonic)(unsigned mn_len, int compact) {
 }
 
 /* The BIP85 child mnemonic of the loaded seed, into signer_mnemonic_output(). Returns its length, or 0 */
-int EXPORT(signer_bip85_mnemonic)(unsigned words, unsigned index) {
+int EXPORT(signer_bip85_mnemonic)(unsigned int words, unsigned int index) {
     int n = core_bip85_mnemonic(words, index, mnemonic, sizeof(mnemonic));
     if (!n) wipe(mnemonic, sizeof(mnemonic));
     return n;
@@ -247,7 +247,8 @@ int EXPORT(signer_bip85_mnemonic)(unsigned words, unsigned index) {
 
 /* in holds the message. What to show goes to signer_message_output(); the signature, once that has
  * been approved, to signer_message_sig() */
-int EXPORT(signer_message_review)(unsigned len, unsigned purpose, unsigned account, unsigned chain, unsigned index) {
+int EXPORT(signer_message_review)(unsigned int len, unsigned int purpose, unsigned int account, unsigned int chain,
+                                  unsigned int index) {
     int rc =
         len <= sizeof(in) ? core_message_review(in, len, purpose, account, chain, index, &message) : CORE_ERR_FORMAT;
     wipe(in, sizeof(in));
@@ -259,12 +260,12 @@ int EXPORT(signer_message_sign)(void) {
 
 /* in holds a descriptor, BSMS record or Coldcard setup file. What to show before trusting it goes to
  * signer_multisig_output() */
-int EXPORT(signer_multisig_load)(unsigned len) {
+int EXPORT(signer_multisig_load)(unsigned int len) {
     int rc = len <= sizeof(in) ? core_multisig_load((const char *)in, len, &multisig) : CORE_ERR_FORMAT;
     wipe(in, sizeof(in));
     return rc;
 }
-int EXPORT(signer_multisig_load_cbor)(unsigned len) {
+int EXPORT(signer_multisig_load_cbor)(unsigned int len) {
     int rc = len <= sizeof(in) ? core_multisig_load_cbor(in, len, &multisig) : CORE_ERR_FORMAT;
     wipe(in, sizeof(in));
     return rc;
@@ -274,7 +275,7 @@ void EXPORT(signer_multisig_unload)(void) {
     wipe(&multisig, sizeof(multisig));
 }
 
-int EXPORT(signer_account_cbor)(unsigned account) {
+int EXPORT(signer_account_cbor)(unsigned int account) {
     int n = core_account_cbor(account, cbor, sizeof(cbor));
     if (n < 0) wipe(cbor, sizeof(cbor));
     return n;

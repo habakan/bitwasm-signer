@@ -48,7 +48,8 @@ static int recovers_to(const secp256k1_context *ctx, const uint8_t sig[65], cons
            secp256k1_ec_pubkey_serialize(ctx, got, &out, &pub, SECP256K1_EC_COMPRESSED) && !memcmp(got, want, 33);
 }
 
-static int review(const char *msg, size_t len, unsigned purpose, uint32_t chain, uint32_t index, core_message_t *m) {
+static int review(const char *msg, size_t len, unsigned int purpose, uint32_t chain, uint32_t index,
+                  core_message_t *m) {
     return core_message_review((const uint8_t *)msg, len, purpose, 0, chain, index, m);
 }
 

@@ -5,12 +5,12 @@
 
 #define H 0x80000000u
 
-int bip85_entropy(const secp256k1_context *ctx, const bip32_node_t *root, const uint32_t *path, unsigned depth,
+int bip85_entropy(const secp256k1_context *ctx, const bip32_node_t *root, const uint32_t *path, unsigned int depth,
                   uint8_t out[64]) {
     bip32_node_t node;
     hmac_sha512_ctx h;
     int ok = 1;
-    for (unsigned i = 0; i < depth; i++) ok &= (path[i] & H) != 0;
+    for (unsigned int i = 0; i < depth; i++) ok &= (path[i] & H) != 0;
     ok = ok && bip32_derive(ctx, root, path, depth, &node);
     if (ok) {
         hmac_sha512_init(&h, (const unsigned char *)"bip-entropy-from-k", 18);
@@ -22,7 +22,7 @@ int bip85_entropy(const secp256k1_context *ctx, const bip32_node_t *root, const 
     return ok;
 }
 
-int bip85_bip39(const secp256k1_context *ctx, const bip32_node_t *root, unsigned words, uint32_t index, char *out,
+int bip85_bip39(const secp256k1_context *ctx, const bip32_node_t *root, unsigned int words, uint32_t index, char *out,
                 size_t cap) {
     const uint32_t path[5] = {83696968u | H, 39u | H, 0u | H, words | H, index | H};
     uint8_t ent[64];

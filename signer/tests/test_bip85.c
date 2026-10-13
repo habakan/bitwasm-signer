@@ -31,7 +31,7 @@ static void xprv_node(const char *s, bip32_node_t *node) {
     static const char *a = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     uint8_t b[82] = {0};
     for (; *s; s++) {
-        unsigned carry = (unsigned)(strchr(a, *s) - a);
+        unsigned int carry = (unsigned int)(strchr(a, *s) - a);
         for (int i = 81; i >= 0; i--) {
             carry += 58u * b[i];
             b[i] = (uint8_t)carry;
@@ -82,7 +82,7 @@ int main(void) {
     CHECK(!bip85_bip39(ctx, &root, 24, 0, mn, 100), "a small buffer refused");
     {
         int clean = 1;
-        for (unsigned k = 0; k < 100; k++) clean &= mn[k] == 0 || mn[k] == 0x55; /* cleared, or never written */
+        for (unsigned int k = 0; k < 100; k++) clean &= mn[k] == 0 || mn[k] == 0x55; /* cleared, or never written */
         CHECK(clean, "and none of the child's words are left in it");
     }
     CHECK(bip85_bip39(ctx, &root, 12, H - 1, mn, sizeof(mn)) > 0, "the largest index");

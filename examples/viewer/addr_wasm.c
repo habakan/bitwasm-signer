@@ -11,6 +11,6 @@ __attribute__((export_name("addr_output"))) char *addr_output(void) {
     return out;
 }
 /* 1 on success; testnet is 0 or 1 */
-__attribute__((export_name("addr_encode"))) int addr_encode(unsigned len, int testnet) {
+__attribute__((export_name("addr_encode"))) int addr_encode(unsigned int len, int testnet) {
     return len <= sizeof(spk) && address_encode(spk, len, testnet, out);
 }
