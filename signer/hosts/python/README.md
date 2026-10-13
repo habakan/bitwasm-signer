@@ -36,3 +36,5 @@ try:
 finally:
     signer.unload()
 ```
+
+Pass the parser's 528-byte `parser_nonces()` buffer to `sign(nonces)` for anti-exfil points. `multisig_load()` returns the wallet's receive address for review; `account_cbor()` and `multisig_cbor()` provide its public wallet data.

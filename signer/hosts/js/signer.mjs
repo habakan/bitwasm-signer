@@ -15,6 +15,7 @@ const L = {
   },
   sig: { size: 108, input: 0, pubkey: 1, sigLen: 34, sig: 35 },
   message: { size: 1101, address: 0, textKind: 75, text: 76, textCap: 1025 },
+  multisig: { size: 732, threshold: 0, n: 1, ours: 2, fingerprints: 4, receive: 16, receiveCap: 75, descriptor: 91, descriptorCap: 640 },
   limits: { maxInputs: 16, maxOutputs: 16, xpubMax: 120, descMax: 180, prevtxMax: 32768 },
 };
 
@@ -30,6 +31,8 @@ const L = {
  *   signer_review_output: () => number,
  *   signer_display_output: () => number,
  *   signer_sigs: () => number,
+ *   signer_nonces: () => number,
+ *   signer_nonce_points: () => number,
  *   signer_xpub_output: () => number,
  *   signer_desc_output: () => number,
  *   signer_init: (testnet: number) => number,
@@ -54,6 +57,12 @@ const L = {
  *   signer_message_sig: () => number,
  *   signer_message_review: (len: number, purpose: number, account: number, chain: number, index: number) => number,
  *   signer_message_sign: () => number,
+ *   signer_multisig_output: () => number,
+ *   signer_multisig_load: (len: number) => number,
+ *   signer_multisig_unload: () => void,
+ *   signer_cbor_output: () => number,
+ *   signer_account_cbor: (account: number) => number,
+ *   signer_multisig_cbor: () => number,
  * }} SignerExports
  */
 
@@ -83,7 +92,7 @@ const NOT_FOUND = 12;
 export const ERRORS = {
   1: "FORMAT", 2: "NO_SEED", 3: "NOT_OURS", 4: "NOTHING_TO_SIGN", 5: "SIGHASH", 6: "SCRIPT",
   7: "PREVTX_MISSING", 8: "PREVTX_MISMATCH", 9: "FEE", 10: "NOT_REVIEWED", 11: "CRYPTO",
-  12: "NOT_FOUND",
+  12: "NOT_FOUND", 13: "WALLET",
 };
 
 export class SignerError extends Error {
@@ -389,11 +398,17 @@ export class Signer {
    *  parser.wasm's signature buffer.
    *
    *  One review permits exactly one signing: the module clears its own approval afterwards, so a
-   *  second call without reviewing again is refused. One approval, one signature. */
-  sign() {
+   *  second call without reviewing again is refused. One approval, one signature.
+   *
+   *  `nonces` is the parser's nonces(): with a coordinator's n for an input, its signature comes with the
+   *  anti-exfil `point` Q the coordinator checks R against; otherwise `point` is null.
+   *  @param {Uint8Array} [nonces] */
+  sign(nonces) {
     if (!this.#reviewed) {
       throw new Error("review() has to pass first; one approval permits one signing");
     }
+    if (nonces && nonces.length !== 16 * 33) throw new RangeError("nonces are 16 x 33 bytes, as the parser gives them");
+    if (nonces) this.#mem.set(nonces, this.#e.signer_nonces());
     const rc = this.#e.signer_sign();
     this.#reviewed = false;
     if (rc < 0) throw new SignerError("sign", -rc);
@@ -403,11 +418,13 @@ export class Signer {
       const at = base + i * L.sig.size;
       const v = this.#view(at, L.sig.size);
       const len = v.getUint8(L.sig.sigLen);
+      const point = this.#mem.slice(this.#e.signer_nonce_points() + i * 33, this.#e.signer_nonce_points() + (i + 1) * 33);
       out.push({
         input: v.getUint8(L.sig.input),
         pubkey: this.#mem.slice(at + L.sig.pubkey, at + L.sig.pubkey + 33),
         sig: this.#mem.slice(at + L.sig.sig, at + L.sig.sig + len),
         raw: this.#mem.slice(at, at + L.sig.size),
+        point: point.some((b) => b) ? point : null,
       });
     }
     return out;
@@ -488,6 +505,61 @@ export class Signer {
       xpub: read(this.#e.signer_xpub_output(), L.limits.xpubMax),
       descriptor: read(this.#e.signer_desc_output(), L.limits.descMax),
     };
+  }
+
+  /** Registers a P2WSH sortedmulti wallet of at most three keys, from a descriptor, a BSMS 1.0 record or a
+   *  Coldcard setup file. Show what this returns, the receive address above all, before trusting it: from
+   *  then on the wallet's inputs are signed only when they are the wallet's, and its outputs at our paths are
+   *  change. Loading another seed unloads it. */
+  /** @param {string | Uint8Array} text */
+  multisigLoad(text) {
+    const bytes = typeof text === "string" ? new TextEncoder().encode(text) : text;
+    const cap = this.#e.signer_input_cap();
+    if (bytes.length > cap) throw new RangeError(`a multisig setup of ${bytes.length} bytes, cap is ${cap}`);
+    this.#mem.set(bytes, this.#e.signer_input());
+    const rc = this.#e.signer_multisig_load(bytes.length);
+    if (rc !== 0) throw new SignerError("multisigLoad", rc);
+    const at = this.#e.signer_multisig_output(), m = L.multisig;
+    const v = this.#view(at, m.size);
+    const read = (/** @type {number} */ off, /** @type {number} */ cap) => {
+      const raw = this.#mem.subarray(at + off, at + off + cap);
+      const nul = raw.indexOf(0);
+      return new TextDecoder().decode(raw.subarray(0, nul < 0 ? raw.length : nul));
+    };
+    const n = v.getUint8(m.n);
+    return {
+      threshold: v.getUint8(m.threshold),
+      ours: v.getUint8(m.ours),
+      fingerprints: [...Array(n)].map((_, i) => (v.getUint32(m.fingerprints + 4 * i, true) >>> 0).toString(16).padStart(8, "0")),
+      receive: read(m.receive, m.receiveCap),
+      descriptor: read(m.descriptor, m.descriptorCap),
+    };
+  }
+
+  multisigUnload() {
+    this.#e.signer_multisig_unload();
+  }
+
+  /** CBOR for a crypto-account UR: the account's sh(wpkh()), wpkh(), tr() and BIP48 keys. Hand it to
+   *  parser.wasm's parser_ur_encode_cbor(1, ...) */
+  accountCbor({ account = 0 } = {}) {
+    if (!Number.isInteger(account) || account < 0 || account >= 2 ** 32) throw new RangeError(`account ${account}`);
+    return this.#cbor(this.#e.signer_account_cbor(account), "accountCbor");
+  }
+
+  /** CBOR for a crypto-output UR of the registered wallet, for parser_ur_encode_cbor(2, ...) */
+  multisigCbor() {
+    return this.#cbor(this.#e.signer_multisig_cbor(), "multisigCbor");
+  }
+
+  /**
+   * @param {number} rc
+   * @param {string} name
+   */
+  #cbor(rc, name) {
+    if (rc < 0) throw new SignerError(name, -rc);
+    const at = this.#e.signer_cbor_output();
+    return this.#mem.slice(at, at + rc);
   }
 
   static get LAYOUT() {

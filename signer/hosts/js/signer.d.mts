@@ -72,6 +72,17 @@ export class Signer {
             text: number;
             textCap: number;
         };
+        multisig: {
+            size: number;
+            threshold: number;
+            n: number;
+            ours: number;
+            fingerprints: number;
+            receive: number;
+            receiveCap: number;
+            descriptor: number;
+            descriptorCap: number;
+        };
         limits: {
             maxInputs: number;
             maxOutputs: number;
@@ -169,12 +180,17 @@ export class Signer {
      *  parser.wasm's signature buffer.
      *
      *  One review permits exactly one signing: the module clears its own approval afterwards, so a
-     *  second call without reviewing again is refused. One approval, one signature. */
-    sign(): {
+     *  second call without reviewing again is refused. One approval, one signature.
+     *
+     *  `nonces` is the parser's nonces(): with a coordinator's n for an input, its signature comes with the
+     *  anti-exfil `point` Q the coordinator checks R against; otherwise `point` is null.
+     *  @param {Uint8Array} [nonces] */
+    sign(nonces?: Uint8Array): {
         input: number;
         pubkey: Uint8Array<ArrayBuffer>;
         sig: Uint8Array<ArrayBuffer>;
         raw: Uint8Array<ArrayBuffer>;
+        point: Uint8Array<ArrayBuffer> | null;
     }[];
     /** Which of our addresses this is: receive (chain 0) first, then change, indices 0 to count-1. Takes
      *  a bare address or a BIP21 URI; P2SH-P2WPKH, P2WPKH and P2TR only. Returns null when it is not found. */
@@ -220,6 +236,26 @@ export class Signer {
         xpub: string;
         descriptor: string;
     };
+    /** Registers a P2WSH sortedmulti wallet of at most three keys, from a descriptor, a BSMS 1.0 record or a
+     *  Coldcard setup file. Show what this returns, the receive address above all, before trusting it: from
+     *  then on the wallet's inputs are signed only when they are the wallet's, and its outputs at our paths are
+     *  change. Loading another seed unloads it. */
+    /** @param {string | Uint8Array} text */
+    multisigLoad(text: string | Uint8Array): {
+        threshold: number;
+        ours: number;
+        fingerprints: string[];
+        receive: string;
+        descriptor: string;
+    };
+    multisigUnload(): void;
+    /** CBOR for a crypto-account UR: the account's sh(wpkh()), wpkh(), tr() and BIP48 keys. Hand it to
+     *  parser.wasm's parser_ur_encode_cbor(1, ...) */
+    accountCbor({ account }?: {
+        account?: number | undefined;
+    }): Uint8Array<ArrayBuffer>;
+    /** CBOR for a crypto-output UR of the registered wallet, for parser_ur_encode_cbor(2, ...) */
+    multisigCbor(): Uint8Array<ArrayBuffer>;
     #private;
 }
 /**
@@ -235,6 +271,8 @@ export type SignerExports = {
     signer_review_output: () => number;
     signer_display_output: () => number;
     signer_sigs: () => number;
+    signer_nonces: () => number;
+    signer_nonce_points: () => number;
     signer_xpub_output: () => number;
     signer_desc_output: () => number;
     signer_init: (testnet: number) => number;
@@ -259,6 +297,12 @@ export type SignerExports = {
     signer_message_sig: () => number;
     signer_message_review: (len: number, purpose: number, account: number, chain: number, index: number) => number;
     signer_message_sign: () => number;
+    signer_multisig_output: () => number;
+    signer_multisig_load: (len: number) => number;
+    signer_multisig_unload: () => void;
+    signer_cbor_output: () => number;
+    signer_account_cbor: (account: number) => number;
+    signer_multisig_cbor: () => number;
 };
 /**
  * What review() reports. `owner` has one entry per output, `willSign` one per input.

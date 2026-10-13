@@ -188,7 +188,7 @@ for (const [what, opts] of [["BIP44", { purpose: 44 }], ["a hardened account", {
   check("another account", found("bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g", { account: 1, count: 20 }), "null");
   for (const [what, a, err, opts] of [["a testnet address", "tb1q6rz28mcfaxtmd6v789l9rrlrusdprr9pqcpvkl", SignerError],
                                 ["base58", "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", SignerError],
-                                ["an oversized string", "bc1q" + "q".repeat(600), RangeError],
+                                ["an oversized string", "bc1q" + "q".repeat(1100), RangeError],
                                 ["a NUL inside", "bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g\0junk", SignerError],
                                 ["a count JavaScript would wrap", "bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g", RangeError, { count: 2 ** 32 + 5 }]]) {
     try {
@@ -337,6 +337,61 @@ for (const [what, opts] of [["BIP44", { purpose: 44 }], ["a hardened account", {
     mutate(plan);
     rehash(plan);
     refused(`a witness script with ${what} is refused`, plan, base.prevTxs, /SCRIPT/);
+  }
+  W.unload();
+}
+
+// --- a registered multisig: its change is change, an input of another wallet is refused, and the public keys go
+// out as CBOR that urtypes (Krux, Specter DIY) reads back as these descriptors
+{
+  const W = await Signer.load(signerWasm);
+  W.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
+  const FP = parseInt("73c5da0a", 16);
+  const key = (fp, xpub) => `[${fp}/48h/0h/0h/2h]${xpub}/<0;1>/*`;
+  const K0 = key("73c5da0a", "xpub6DkFAXWQ2dHxq2vatrt9qyA3bXYU4ToWQwCHbf5XB2mSTexcHZCeKS1VZYcPoBd5X8yVcbXFHJR9R8UCVpt82VX1VhR28mCyxUFL4r6KFrf");
+  const K1 = key("3f635a63", "xpub6FHZCoNb3tg3o1GAJQxSwgFNF8mLRtTk2GgkF7n5rwzoxBhUEdFWa8cyZRHqytAzKZWsKz8627cQEMCCfR5GDSv6yXegqirpgDUX41Pxybr");
+  const K2 = key("b8688df1", "xpub6FQya7zGhR92kacYsNnjreouvnHJMpXYsUXnW6NJJAJRCKsa26TzDy4LdnGhEurr3d6y1J8PJ7EEMKQp74XTqYvmGJNogYXSKDszYHtF8mX");
+  const K3 = key("28645006", "xpub6DnEBNkSJKBYQmsbhS1sP9cNdtU5c9PLFGCjTJmxicxc13WB8zNNGQazabQpyFAGW5bV9tMko4uBxDxjUKL6dSAcx1tEbgEHtgSqyRsekh6");
+  check("the CBOR of the account's keys", Buffer.from(W.accountCbor()).toString("hex"), "a2011a73c5da0a0284d90134d90190d90194d9012fa403582102f1f347891b20f7568eae3ec9869fbfb67bcab6f358326f10ecc42356bd55939d0458206eaae365ae0e0a0aab84325cfe7cd76c3b909035f889e7d3f1b847a9a0797ecb06d90130a201861831f500f500f5021a73c5da0a081a3d05ff75d90134d90194d9012fa403582102707a62fdacc26ea9b63b1c197906f56ee0180d0bcf1966e1a2da34f5f3a09a9b0458204a53a0ab21b9dc95869c4e92a161194e03c0ef3ff5014ac692f433c4765490fc06d90130a201861854f500f500f5021a73c5da0a081a7ef32bdbd90134d90199d9012fa403582103418278a2885c8bb98148158d1474634097a179c642f23cf1cc04da629ac6f0fb045820c61a8f27e98182314d2444da3e600eb5836ec8ad183c86c311f95df8082b18aa06d90130a201861856f500f500f5021a73c5da0a081a035270dad90134d90191d9019ad9012fa4035821021a3bf5fbf737d0f36993fd46dc4913093beb532d654fe0dfd98bd27585dc9f29045820bba0c7ca160a870efeb940ab90d0f4284fea1b5e0d2117677e823fc37e2d576306d90130a201881830f500f500f502f5021a73c5da0a081a1cf29716");
+  const ms = W.multisigLoad(`wsh(sortedmulti(2,${K0},${K1},${K2}))`);
+  ok("a 2 of 3 with ours first and Core's receive address",
+     ms.threshold === 2 && ms.ours === 0 && ms.fingerprints.join() === "73c5da0a,3f635a63,b8688df1" &&
+     ms.receive === "bc1qea2gkgeszr7wm66x2ejkgdxm9nhg9462sszn75zmkhazev0t02vs70kkll" && ms.descriptor.endsWith("#d9p6ar8k"));
+  check("the CBOR of the wallet", Buffer.from(W.multisigCbor()).toString("hex"), "d90191d90197a201020283d9012fa4035821021a3bf5fbf737d0f36993fd46dc4913093beb532d654fe0dfd98bd27585dc9f29045820bba0c7ca160a870efeb940ab90d0f4284fea1b5e0d2117677e823fc37e2d576306d90130a201881830f500f500f502f5021a73c5da0a081a1cf29716d9012fa4035821030e435aae36818255097925c6d2cedae9867961a5ddcc2e80bd6a0d00687286c304582038d3b00251a463b0ffe9b595d21752664c5a231c89fc2fb4f695ab90cdcd77dd06d90130a201881830f500f500f502f5021a3f635a63081aee71f8c5d9012fa40358210339710356a496726c84692621b2b6e3645dd35bc0026c587f16411897990a1e1f045820a732876f758546f2e3aa40a0ba12c5ea24ee18f9086e854e573bea1e219d172f06d90130a201881830f500f500f502f5021ab8688df1081affd9c519");
+  for (const name of ["own_p2wsh_2of3_1in", "own_p2wsh_2of3_cosigned"]) {
+    const v = planFor(`${root}parser/build/vectors/${name}.psbt`, FP);
+    const r = W.setPlan(v.plan).setPrevTxs(v.prevTxs).review();
+    ok(`${name}: with the wallet registered, the P2WSH output is change`, r.owner[0] === OWNER.EXTERNAL && r.owner[1] === OWNER.CHANGE);
+    const d = W.display();
+    check(`${name}: and only the payment is spent`, d.spend, 60000n);
+    check(`${name}: still signs`, W.sign().length, 1);
+  }
+  {
+    const v = planFor(`${root}parser/build/vectors/own_mixed_p2wsh_nwu.psbt`, FP);
+    const r = W.setPlan(v.plan).setPrevTxs(v.prevTxs).review();
+    ok("a P2WSH input beside P2WPKH is signed with the wallet registered", r.nSign === 2);
+  }
+  W.multisigLoad(`wsh(sortedmulti(2,${K0},${K1},${K3}))`);
+  {
+    const v = planFor(`${root}parser/build/vectors/own_p2wsh_2of3_1in.psbt`, FP);
+    try {
+      W.setPlan(v.plan).setPrevTxs(v.prevTxs).review();
+      ok("an input of another wallet holding our key is refused", false);
+    } catch (e) {
+      ok("an input of another wallet holding our key is refused", /WALLET/.test(e.message));
+    }
+  }
+  W.multisigUnload();
+  {
+    const v = planFor(`${root}parser/build/vectors/own_p2wsh_2of3_1in.psbt`, FP);
+    const r = W.setPlan(v.plan).setPrevTxs(v.prevTxs).review();
+    ok("unregistered again, the input signs and the change is external", r.nSign === 1 && r.owner[1] === OWNER.EXTERNAL);
+  }
+  try {
+    W.multisigLoad(`wsh(sortedmulti(2,${K3},${K1}))`);
+    ok("a wallet without our key is refused", false);
+  } catch (e) {
+    ok("a wallet without our key is refused", /multisigLoad: WALLET/.test(e.message));
   }
   W.unload();
 }
@@ -634,7 +689,7 @@ for (const [what, bad] of [["a bad checksum", "abandon ".repeat(11) + "abandon"]
     }
   }
   try {
-    Q.seedFromSeedQR(new Uint8Array(400), new Uint8Array(200));
+    Q.seedFromSeedQR(new Uint8Array(800), new Uint8Array(300));
     ok("an oversized SeedQR is refused", false);
   } catch (e) {
     ok("an oversized SeedQR is refused", e instanceof RangeError);
@@ -653,7 +708,7 @@ for (const [what, bad] of [["a bad checksum", "abandon ".repeat(11) + "abandon"]
 
 // --- a seed that does not fit is rejected before anything is written
 try {
-  S.seedFromMnemonic(new Uint8Array(600).fill(0x78));
+  S.seedFromMnemonic(new Uint8Array(1100).fill(0x78));
   ok("an oversized mnemonic is refused", false);
 } catch (e) {
   ok("an oversized mnemonic is refused", e instanceof RangeError);
@@ -744,6 +799,44 @@ check("fingerprint after unload", S.fingerprint, "00000000");
   }
   check("secrets left after loading a seed and unloading", await survivors(false), "");
   check("secrets left after signing, xpub and unloading", await survivors(true), "");
+}
+
+// --- anti-exfil: n goes in as a proprietary input field and Q comes out as one. test_core.c checks R against Q
+{
+  const KEY = Uint8Array.of(0xfc, 8, ...new TextEncoder().encode("jitsu-in"));
+  // the PSBT with a record just before the end of input 0's map
+  const withRecord = (psbt, rec) => {
+    let o = 5;
+    const cs = () => { const b = psbt[o++]; if (b < 0xfd) return b; const v = psbt[o] | psbt[o + 1] << 8; o += 2; return v; };
+    for (let map = 0; map < 2; map++) for (let k; (k = cs()); ) { o += k; const v = cs(); o += v; }
+    o--;
+    return Buffer.concat([psbt.subarray(0, o), rec, psbt.subarray(o)]);
+  };
+  const withNonce = (psbt, n) => withRecord(psbt, Buffer.concat([Buffer.from([11, ...KEY, 1, 32]), n]));
+  const n = Buffer.alloc(32, 0x5a);
+  for (const [name, schnorr] of [["own_p2wpkh_1in", false], ["own_p2tr_2in", true]]) {
+    const psbt = withNonce(readFileSync(`${root}parser/build/vectors/${name}.psbt`), n);
+    const mem = () => new Uint8Array(P.memory.buffer);
+    mem().set(psbt, P.parser_input());
+    check(`${name} with n: parses`, P.parser_parse(psbt.length, parseInt("73c5da0a", 16)), 0);
+    const nonces = mem().slice(P.parser_nonces(), P.parser_nonces() + 16 * 33);
+    ok(`${name}: n is read for input 0 only`, nonces[0] === 1 && hex(nonces.subarray(1, 33)) === hex(n) && nonces[33] === 0);
+    const plan = mem().slice(P.parser_plan(), P.parser_plan() + PLAN_SIZE);
+    const X = await Signer.load(signerWasm);
+    X.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
+    X.setPlan(plan).review();
+    const sv = X.sign(nonces);
+    ok(`${name}: Q for input 0, none for the rest`, sv[0].point?.length === 33 && sv.slice(1).every((s) => s.point === null));
+    sv.forEach((s, i) => { mem().set(s.raw, P.parser_sigs() + i * 108); mem().set(s.point ?? new Uint8Array(33), P.parser_nonce_points() + i * 33); });
+    const len = P.parser_finalize(sv.length);
+    const out = Buffer.from(mem().slice(P.parser_output(), P.parser_output() + len));
+    const keydata = schnorr ? sv[0].pubkey.subarray(1) : sv[0].pubkey;
+    const qRecord = (key) => Buffer.concat([Buffer.from([11 + key.length, ...KEY, 2]), key, Buffer.from([33]), sv[0].point]);
+    ok(`${name}: the signed PSBT carries Q under the signer's key`, out.includes(qRecord(keydata)));
+    const reparse = (rec) => { const b = withRecord(psbt, rec); mem().set(b, P.parser_input()); return P.parser_parse(b.length, parseInt("73c5da0a", 16)); };
+    check(`${name}: our Q without our signature is refused`, reparse(qRecord(keydata)), 3);
+    check(`${name}: another key's Q is not ours`, reparse(qRecord(Buffer.alloc(keydata.length, 2))), 0);
+  }
 }
 
 console.log(`${pass}/${pass + fail} checks passed`);

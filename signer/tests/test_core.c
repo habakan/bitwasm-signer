@@ -392,12 +392,90 @@ static void test_address(void) {
           "bip86 address");
 }
 
+/* The x of R the coordinator expects: Q + H(Q, m, n)G */
+static int exfil_r(const secp256k1_context *ctx, const uint8_t q33[33], const uint8_t m[32], const uint8_t n[32],
+                   uint8_t x[32]) {
+    uint8_t buf[97], t[32], ser[33];
+    size_t len = 33;
+    secp256k1_pubkey q, tg, r;
+    const secp256k1_pubkey *both[2] = {&q, &tg};
+    memcpy(buf, q33, 33), memcpy(buf + 33, m, 32), memcpy(buf + 65, n, 32);
+    if (!secp256k1_tagged_sha256(ctx, t, (const uint8_t *)"jitsu-in/anti-exfil/t", 21, buf, 97) ||
+        !secp256k1_ec_pubkey_parse(ctx, &q, q33, 33) || !secp256k1_ec_pubkey_create(ctx, &tg, t) ||
+        !secp256k1_ec_pubkey_combine(ctx, &r, both, 2) ||
+        !secp256k1_ec_pubkey_serialize(ctx, ser, &len, &r, SECP256K1_EC_COMPRESSED))
+        return 0;
+    memcpy(x, ser + 1, 32);
+    return 1;
+}
+
+static void test_anti_exfil(void) {
+    secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+    static const uint8_t zero[33] = {0};
+    uint8_t n0[32], n1[32], digest[32], x[32], compact[64], first[73], q0[33];
+    core_review_t r;
+    core_sig_t sigs[PLAN_MAX_INPUTS];
+    secp256k1_ecdsa_signature sig;
+    unsigned n;
+    plan_t p;
+
+    memset(n0, 0x11, 32), memset(n1, 0x22, 32);
+    CHECK(core_load_seed(TV_SEED), "seed");
+    base_plan(&p);
+    CHECK(sighash_bip143_p2wpkh(&p, 0, p.inputs[0].spk.bytes + 2, digest), "sighash");
+    CHECK(core_review(&p, NULL, &r) == CORE_OK && core_set_host_nonce(0, n0) &&
+              core_sign(&p, zero_rng, sigs, &n) == CORE_OK && n == 1,
+          "ecdsa sign with a host nonce");
+    memcpy(first, sigs[0].sig, sigs[0].sig_len), memcpy(q0, core_nonce_point(0), 33);
+    CHECK(secp256k1_ecdsa_signature_parse_der(ctx, &sig, sigs[0].sig, sigs[0].sig_len - 1u) &&
+              secp256k1_ecdsa_signature_serialize_compact(ctx, compact, &sig) && exfil_r(ctx, q0, digest, n0, x) &&
+              !memcmp(x, compact, 32),
+          "ecdsa R is Q + H(Q, m, n)G");
+    CHECK(core_review(&p, NULL, &r) == CORE_OK && core_set_host_nonce(0, n0) &&
+              core_sign(&p, zero_rng, sigs, &n) == CORE_OK && !memcmp(first, sigs[0].sig, sigs[0].sig_len) &&
+              !memcmp(q0, core_nonce_point(0), 33),
+          "the same n gives the same signature");
+    CHECK(core_review(&p, NULL, &r) == CORE_OK && core_set_host_nonce(0, n1) &&
+              core_sign(&p, zero_rng, sigs, &n) == CORE_OK && memcmp(q0, core_nonce_point(0), 33) &&
+              memcmp(first, sigs[0].sig, sigs[0].sig_len),
+          "another n gives another nonce");
+    CHECK(core_review(&p, NULL, &r) == CORE_OK && core_sign(&p, zero_rng, sigs, &n) == CORE_OK &&
+              !memcmp(core_nonce_point(0), zero, 33),
+          "a host nonce is used once");
+    CHECK(core_set_host_nonce(0, n0) && core_sign(&p, zero_rng, sigs, &n) == CORE_ERR_NOT_REVIEWED &&
+              core_review(&p, NULL, &r) == CORE_OK && core_sign(&p, zero_rng, sigs, &n) == CORE_OK &&
+              !memcmp(core_nonce_point(0), zero, 33),
+          "a failed sign drops its host nonce too");
+
+    /* P2TR: R is checked by x alone, which BIP340's negation of k leaves alone */
+    memset(&p, 0, sizeof(p));
+    p.magic = PLAN_MAGIC, p.version = PLAN_VERSION, p.tx_version = 2;
+    p.n_inputs = 2, p.n_outputs = 1;
+    for (unsigned i = 0; i < 2; i++) {
+        memset(p.inputs[i].prev_txid, 0xbb + i, 32);
+        p.inputs[i].amount = 70000;
+        set_spk(&p.inputs[i].spk, i ? TV_SPK_P2TR_0_1 : TV_SPK_P2TR_0_0, 34);
+        set_key(&p.inputs[i].key, 86 | H, H, H, 0, i);
+    }
+    p.outputs[0].amount = 139000;
+    set_spk(&p.outputs[0].spk, TV_SPK_P2TR_1_0, 34);
+    CHECK(core_review(&p, NULL, &r) == CORE_OK && core_set_host_nonce(1, n1) &&
+              core_sign(&p, zero_rng, sigs, &n) == CORE_OK && n == 2 && !memcmp(core_nonce_point(0), zero, 33),
+          "p2tr sign, a host nonce for the second input only");
+    CHECK(sighash_bip341_keypath(ctx, &p, 1, 0, digest) && exfil_r(ctx, core_nonce_point(1), digest, n1, x) &&
+              !memcmp(x, sigs[1].sig, 32),
+          "schnorr R is Q + H(Q, m, n)G");
+    core_unload();
+    secp256k1_context_destroy(ctx);
+}
+
 int main(void) {
     if (!core_init(CORE_MAINNET)) return 1;
     test_bip143();
     test_bip341();
     test_address();
     test_review_and_sign();
+    test_anti_exfil();
     printf("%d/%d checks passed\n", checks - failures, checks);
     return failures != 0;
 }

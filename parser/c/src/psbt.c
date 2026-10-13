@@ -19,6 +19,8 @@ static uint8_t in_buf[PSBT_MAX], out_buf[PSBT_OUT_MAX];
 static size_t in_len;
 static plan_t plan;
 static plan_sig_t sigs[PLAN_MAX_INPUTS];
+static uint8_t nonces[PLAN_MAX_INPUTS][33], points[PLAN_MAX_INPUTS][33];
+static const uint8_t exfil_key[10] = {0xfc, 8, 'j', 'i', 't', 's', 'u', '-', 'i', 'n'};
 static uint32_t prevtx_off[PLAN_MAX_INPUTS], prevtx_len[PLAN_MAX_INPUTS];
 static size_t in_map_end[PLAN_MAX_INPUTS];
 static int parsed;
@@ -254,6 +256,13 @@ static int parse_input(rd_t *r, unsigned idx, uint32_t fp) {
             if (e->klen != 1 || e->vlen != 32) return P_ERR_FORMAT;
             has_merkle = 1;
             break;
+        case 0xfc:
+            if (e->klen == 11 && !memcmp(e->key, exfil_key, 10) && e->key[10] == 1) {
+                if (e->vlen != 32) return P_ERR_FORMAT;
+                nonces[idx][0] = 1;
+                memcpy(nonces[idx] + 1, e->val, 32);
+            }
+            break;
         default:
             break;
         }
@@ -299,6 +308,14 @@ static int parse_input(rd_t *r, unsigned idx, uint32_t fp) {
     } else if (is_p2tr(&in->spk) && tap.found && !has_merkle && !has_tapsig) {
         c = &tap;
         in->sighash_type = sighash == 0xffffffffu ? 0x00 : (uint8_t)sighash;
+    }
+    /* Our Q without our signature: finalize would write the same key again and the output would not parse */
+    for (size_t i = 0; c && !finalized && i < n; i++) {
+        const uint8_t *own = c == &tap ? in->spk.bytes + 2 : bip32.pubkey; /* P2TR signs with the output key */
+        const size_t own_len = c == &tap ? 32 : 33;
+        if (kv[i].klen == 11 + own_len && !memcmp(kv[i].key, exfil_key, 10) && kv[i].key[10] == 2 &&
+            !memcmp(kv[i].key + 11, own, own_len))
+            return P_ERR_DUPLICATE;
     }
     if (c && !finalized) {
         in->key.depth = c->depth;
@@ -352,9 +369,9 @@ static int parse_output(rd_t *r, unsigned idx, uint32_t fp) {
             break;
         }
     }
-    const cand_t *c = is_wpkh(&o->spk) && bip32.found              ? &bip32
-                      : is_p2tr(&o->spk) && tap.found && !has_tree ? &tap
-                                                                   : NULL;
+    const cand_t *c = (is_wpkh(&o->spk) || is_p2wsh(&o->spk)) && bip32.found ? &bip32
+                      : is_p2tr(&o->spk) && tap.found && !has_tree           ? &tap
+                                                                             : NULL;
     if (c) {
         o->key.depth = c->depth;
         o->key.fingerprint = fp;
@@ -374,6 +391,12 @@ plan_t *EXPORT(parser_plan)(void) {
 }
 plan_sig_t *EXPORT(parser_sigs)(void) {
     return sigs;
+}
+unsigned char *EXPORT(parser_nonces)(void) {
+    return nonces[0];
+}
+unsigned char *EXPORT(parser_nonce_points)(void) {
+    return points[0];
 }
 unsigned char *EXPORT(parser_output)(void) {
     return out_buf;
@@ -395,6 +418,8 @@ int EXPORT(parser_parse)(unsigned len, unsigned fp) {
     memset(&plan, 0, sizeof(plan));
     memset(prevtx_off, 0, sizeof(prevtx_off));
     memset(prevtx_len, 0, sizeof(prevtx_len));
+    memset(nonces, 0, sizeof(nonces));
+    memset(points, 0, sizeof(points));
     if (len > PSBT_MAX) return P_ERR_LIMIT;
     in_len = len;
     if (len < 5 || memcmp(rd_take(&r, 5), magic, 5)) return P_ERR_MAGIC;
@@ -426,6 +451,7 @@ int EXPORT(parser_finalize)(unsigned n) {
         if (!is_p2tr(&in->spk) ? (s->pubkey[0] != 2 && s->pubkey[0] != 3) || s->sig_len < 9 || s->sig_len > 73
                                : s->pubkey[0] != 0 || (s->sig_len != 64 && s->sig_len != 65))
             return -P_ERR_SIG;
+        if (memcmp(points[k], (const uint8_t[33]){0}, 33) && points[k][0] != 2 && points[k][0] != 3) return -P_ERR_SIG;
         by_input[s->input] = (int)k;
     }
     for (unsigned i = 0; i < plan.n_inputs; i++) {
@@ -446,6 +472,15 @@ int EXPORT(parser_finalize)(unsigned n) {
         }
         out_buf[o++] = s->sig_len;
         memcpy(out_buf + o, s->sig, s->sig_len), o += s->sig_len;
+        if (memcmp(points[by_input[i]], (const uint8_t[33]){0}, 33)) {
+            const int p2tr = is_p2tr(&plan.inputs[i].spk);
+            out_buf[o++] = (uint8_t)(11 + 33 - p2tr);
+            memcpy(out_buf + o, exfil_key, 10), o += 10;
+            out_buf[o++] = 2;
+            memcpy(out_buf + o, s->pubkey + p2tr, 33u - p2tr), o += 33u - p2tr;
+            out_buf[o++] = 33;
+            memcpy(out_buf + o, points[by_input[i]], 33), o += 33;
+        }
     }
     memcpy(out_buf + o, in_buf + prev, in_len - prev);
     o += in_len - prev;
@@ -454,7 +489,7 @@ int EXPORT(parser_finalize)(unsigned n) {
 
 /* ---- UR (animated QR) ---- */
 
-static int ur_ready;
+static int ur_ready, ur_kind;
 
 /* Starts a new UR. The reassembly buffer is out_buf, which is free until parser_finalize() */
 void EXPORT(parser_ur_reset)(void) {
@@ -474,12 +509,18 @@ int EXPORT(parser_ur_receive)(unsigned len) {
     if (!ur_ready) parser_ur_reset();
     if (len > PSBT_MAX) return UR_ERR_LIMIT;
     if ((n = ur_decoder_receive((char *)in_buf, len)) <= 0) return (int)n;
-    if ((strcmp(ur_decoder_type(), "crypto-psbt") && strcmp(ur_decoder_type(), "psbt")) ||
+    ur_kind = strcmp(ur_decoder_type(), "bytes") ? 0 : 1;
+    if ((ur_kind == 0 && strcmp(ur_decoder_type(), "crypto-psbt") && strcmp(ur_decoder_type(), "psbt")) ||
         !ur_cbor_bytes(ur_decoder_message(), (size_t)n, &psbt, &psbt_len))
         return UR_ERR_TYPE;
     if (psbt_len > PSBT_MAX) return UR_ERR_LIMIT;
     memmove(in_buf, psbt, psbt_len);
     return (int)psbt_len;
+}
+
+/* What the last complete UR was: 0 a PSBT, 1 bytes (a BSMS record or a descriptor, as text) */
+unsigned EXPORT(parser_ur_kind)(void) {
+    return (unsigned)ur_kind;
 }
 
 /* Parts expected (upper 16 bits; 0 until the first multipart part) and fragments recovered (lower 16 bits) */
@@ -495,7 +536,15 @@ unsigned EXPORT(parser_ur_progress)(void) {
 int EXPORT(parser_ur_encode_start)(unsigned len, unsigned max_fragment_len) {
     if (len > sizeof(out_buf)) return UR_ERR_LIMIT;
     parsed = 0;
-    return (int)ur_encoder_start("crypto-psbt", out_buf, len, max_fragment_len);
+    return (int)ur_encoder_start("crypto-psbt", out_buf, len, 1, max_fragment_len);
+}
+
+/* The same for CBOR the host wrote to parser_output() as it is: kind 1 crypto-account, 2 crypto-output, the
+ * public keys signer.wasm describes */
+int EXPORT(parser_ur_encode_cbor)(unsigned kind, unsigned len, unsigned max_fragment_len) {
+    if (len > sizeof(out_buf) || kind < 1 || kind > 2) return UR_ERR_LIMIT;
+    parsed = 0;
+    return (int)ur_encoder_start(kind == 1 ? "crypto-account" : "crypto-output", out_buf, len, 0, max_fragment_len);
 }
 
 /* Writes the next part to parser_input() and returns its length. Parts after the pure ones are mixed, so

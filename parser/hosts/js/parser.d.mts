@@ -68,6 +68,8 @@ export class Parser {
     urReceive(part: string | Uint8Array): Uint8Array<ArrayBuffer> | null;
     /** Parts received so far. For a progress display only. */
     get urProgress(): number;
+    /** What the UR urReceive() completed was: "psbt", or "bytes" (a BSMS record or a descriptor, as text). */
+    get urKind(): "bytes" | "psbt";
     /**
      * Encode a signed PSBT as animated QR parts.
      * @returns {{ seqLen: number, next: () => string }}
@@ -81,13 +83,27 @@ export class Parser {
         next: () => string;
     };
     /**
-     * Insert signatures and return the signed PSBT.
-     * @param {{input: number, pubkey: Uint8Array, sig: Uint8Array}[]} sigs
+     * Encode CBOR signer.wasm made (accountCbor() or multisigCbor()) as crypto-account or crypto-output parts.
+     * @param {"crypto-account" | "crypto-output"} type
+     * @param {Uint8Array} cbor
+     * @param {number} [fragmentLen]
+     * @returns {{ seqLen: number, next: () => string }}
+     */
+    urEncodeCbor(type: "crypto-account" | "crypto-output", cbor: Uint8Array, fragmentLen?: number): {
+        seqLen: number;
+        next: () => string;
+    };
+    /** Anti-exfil: per input, 1 then the coordinator's 32-byte n, 16 x 33 bytes, to hand to the signer's sign(). */
+    nonces(): Uint8Array<ArrayBuffer>;
+    /**
+     * Insert signatures and return the signed PSBT. A signature's anti-exfil `point` goes in as a proprietary field.
+     * @param {{input: number, pubkey: Uint8Array, sig: Uint8Array, point?: Uint8Array | null}[]} sigs
      */
     finalize(sigs: {
         input: number;
         pubkey: Uint8Array;
         sig: Uint8Array;
+        point?: Uint8Array | null;
     }[]): Uint8Array<ArrayBuffer>;
     #private;
 }
@@ -124,9 +140,13 @@ export type ParserExports = {
     parser_prevtx_off: (i: number) => number;
     parser_prevtx_len: (i: number) => number;
     parser_finalize: (n: number) => number;
+    parser_nonces: () => number;
+    parser_nonce_points: () => number;
     parser_ur_reset: () => void;
     parser_ur_receive: (len: number) => number;
     parser_ur_progress: () => number;
+    parser_ur_kind: () => number;
+    parser_ur_encode_cbor: (kind: number, len: number, fragmentLen: number) => number;
     parser_ur_encode_start: (len: number, fragmentLen: number) => number;
     parser_ur_encode_next: () => number;
 };

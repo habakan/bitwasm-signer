@@ -23,9 +23,13 @@ const PLAN_SIZE = 6712;
  *   parser_prevtx_off: (i: number) => number,
  *   parser_prevtx_len: (i: number) => number,
  *   parser_finalize: (n: number) => number,
+ *   parser_nonces: () => number,
+ *   parser_nonce_points: () => number,
  *   parser_ur_reset: () => void,
  *   parser_ur_receive: (len: number) => number,
  *   parser_ur_progress: () => number,
+ *   parser_ur_kind: () => number,
+ *   parser_ur_encode_cbor: (kind: number, len: number, fragmentLen: number) => number,
  *   parser_ur_encode_start: (len: number, fragmentLen: number) => number,
  *   parser_ur_encode_next: () => number,
  * }} ParserExports
@@ -292,6 +296,9 @@ export class Parser {
   /** Parts received so far. For a progress display only. */
   get urProgress() { return this.exports.parser_ur_progress(); }
 
+  /** What the UR urReceive() completed was: "psbt", or "bytes" (a BSMS record or a descriptor, as text). */
+  get urKind() { return this.exports.parser_ur_kind() === 1 ? "bytes" : "psbt"; }
+
   /**
    * Encode a signed PSBT as animated QR parts.
    * @returns {{ seqLen: number, next: () => string }}
@@ -315,8 +322,38 @@ export class Parser {
   }
 
   /**
-   * Insert signatures and return the signed PSBT.
-   * @param {{input: number, pubkey: Uint8Array, sig: Uint8Array}[]} sigs
+   * Encode CBOR signer.wasm made (accountCbor() or multisigCbor()) as crypto-account or crypto-output parts.
+   * @param {"crypto-account" | "crypto-output"} type
+   * @param {Uint8Array} cbor
+   * @param {number} [fragmentLen]
+   * @returns {{ seqLen: number, next: () => string }}
+   */
+  urEncodeCbor(type, cbor, fragmentLen = 100) {
+    this.#planAvailable = false;
+    this.#refresh();
+    this.mem.set(cbor, this.#check(this.exports.parser_output(), cbor.length));
+    const seqLen = this.exports.parser_ur_encode_cbor(type === "crypto-account" ? 1 : 2, cbor.length, fragmentLen);
+    if (seqLen < 0) throw new ParserError(seqLen, "UR_ERR");
+    return {
+      seqLen,
+      next: () => {
+        const n = this.exports.parser_ur_encode_next();
+        if (n < 0) throw new ParserError(n, "UR_ERR");
+        return new TextDecoder().decode(this.#bytes(this.exports.parser_input(), n));
+      },
+    };
+  }
+
+  /** Anti-exfil: per input, 1 then the coordinator's 32-byte n, 16 x 33 bytes, to hand to the signer's sign(). */
+  nonces() {
+    if (!this.#planAvailable) throw new Error("parse() must succeed before nonces()");
+    this.#refresh();
+    return this.#bytes(this.exports.parser_nonces(), 16 * 33);
+  }
+
+  /**
+   * Insert signatures and return the signed PSBT. A signature's anti-exfil `point` goes in as a proprietary field.
+   * @param {{input: number, pubkey: Uint8Array, sig: Uint8Array, point?: Uint8Array | null}[]} sigs
    */
   finalize(sigs) {
     if (sigs.length > 16) throw new RangeError(`${sigs.length} signatures, a plan has at most 16 inputs`);
@@ -324,12 +361,16 @@ export class Parser {
       if (!(s.input >= 0 && s.input < 16) || s.pubkey.length !== 33 || s.sig.length > 73) {
         throw new RangeError(`input ${s.input}: a signature slot takes a 33-byte pubkey and at most 73 bytes of signature`);
       }
+      if (s.point && s.point.length !== 33) throw new RangeError(`input ${s.input}: an anti-exfil point is 33 bytes`);
     }
     this.#refresh();
     const base = this.exports.parser_sigs();
+    const points = this.exports.parser_nonce_points();
     this.mem.fill(0, this.#check(base, 108 * 16), base + 108 * 16);
+    this.mem.fill(0, this.#check(points, 33 * 16), points + 33 * 16);
     sigs.forEach((s, i) => {
       const o = base + i * 108;
+      if (s.point) this.mem.set(s.point, points + i * 33);
       this.mem[o] = s.input;
       this.mem.set(s.pubkey, o + 1);
       this.mem[o + 34] = s.sig.length;
