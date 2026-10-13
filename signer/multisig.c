@@ -82,7 +82,7 @@ static int key_expr(cur_t *c, int testnet, ms_key_t *k) {
            (eat(c, "/<0;1>/*") || eat(c, "/**") || eat(c, "/0/*"));
 }
 
-static uint64_t desc_polymod(uint64_t c, unsigned v) {
+static uint64_t desc_polymod(uint64_t c, unsigned int v) {
     uint64_t c0 = c >> 35;
     c = ((c & 0x7ffffffffull) << 5) ^ v;
     if (c0 & 1) c ^= 0xf5dee51989ull;
@@ -98,12 +98,12 @@ static int desc_checksum(const char *s, size_t n, char out[9]) {
     static const char IN[] =
         "0123456789()[],'/*abcdefgh@:$%{}IJKLMNOPQRSTUVWXYZ&+-.;<=>?!^_|~ijklmnopqrstuvwxyzABCDEFGH`#\"\\ ";
     uint64_t c = 1;
-    unsigned cls = 0, count = 0;
+    unsigned int cls = 0, count = 0;
     for (size_t i = 0; i < n; i++) {
         const char *p = s[i] ? strchr(IN, s[i]) : NULL;
         if (!p) return 0;
-        c = desc_polymod(c, (unsigned)(p - IN) & 31);
-        cls = cls * 3 + (unsigned)(p - IN) / 32;
+        c = desc_polymod(c, (unsigned int)(p - IN) & 31);
+        cls = cls * 3 + (unsigned int)(p - IN) / 32;
         if (++count == 3) c = desc_polymod(c, cls), cls = count = 0;
     }
     if (count) c = desc_polymod(c, cls);
@@ -207,8 +207,8 @@ int ms_parse(const char *s, size_t len, int testnet, ms_wallet_t *w, char addres
     if (c.n >= 8 && !memcmp(s, "BSMS 1.0", 8)) ok = bsms(&c, testnet, w, address);
     else if (c.n >= 4 && !memcmp(s, "wsh(", 4)) ok = descriptor(&c, testnet, w) && c.i == c.n;
     else ok = setup_file(&c, testnet, w);
-    for (unsigned i = 0; ok && i < w->n; i++)
-        for (unsigned j = 0; j < i; j++) ok &= !!memcmp(w->keys[i].ser + 45, w->keys[j].ser + 45, 33);
+    for (unsigned int i = 0; ok && i < w->n; i++)
+        for (unsigned int j = 0; j < i; j++) ok &= !!memcmp(w->keys[i].ser + 45, w->keys[j].ser + 45, 33);
     if (!ok) memset(w, 0, sizeof(*w)), address[0] = 0;
     return ok;
 }
@@ -216,16 +216,16 @@ int ms_parse(const char *s, size_t len, int testnet, ms_wallet_t *w, char addres
 int ms_wscript(const ms_wallet_t *w, uint32_t chain, uint32_t index, plan_wscript_t *out) {
     uint8_t keys[MS_MAX_KEYS][33], cc[32], mid[33], t[33];
     memset(out, 0, sizeof(*out));
-    for (unsigned i = 0; i < w->n; i++) {
+    for (unsigned int i = 0; i < w->n; i++) {
         const uint8_t *ser = w->keys[i].ser;
         if (!bip32_pub_child(ser + 45, ser + 13, chain, mid, cc) || !bip32_pub_child(mid, cc, index, keys[i], cc))
             return 0;
-        for (unsigned j = i; j > 0 && memcmp(keys[j - 1], keys[j], 33) > 0; j--) {
+        for (unsigned int j = i; j > 0 && memcmp(keys[j - 1], keys[j], 33) > 0; j--) {
             memcpy(t, keys[j], 33), memcpy(keys[j], keys[j - 1], 33), memcpy(keys[j - 1], t, 33);
         }
     }
     out->bytes[out->len++] = (uint8_t)(0x50 + w->threshold);
-    for (unsigned i = 0; i < w->n; i++) {
+    for (unsigned int i = 0; i < w->n; i++) {
         out->bytes[out->len++] = 33;
         memcpy(out->bytes + out->len, keys[i], 33);
         out->len += 33;
@@ -258,13 +258,13 @@ size_t ms_descriptor(const ms_wallet_t *w, int testnet, char out[MS_DESC_MAX]) {
     size_t o = put(out, 0, "wsh(sortedmulti(");
     decimal(w->threshold, num);
     o = put(out, o, num);
-    for (unsigned i = 0; i < w->n; i++) {
+    for (unsigned int i = 0; i < w->n; i++) {
         const ms_key_t *k = &w->keys[i];
         o = put(out, o, ",[");
         for (int d = 0; d < 8; d++) num[d] = "0123456789abcdef"[k->fingerprint >> (28 - 4 * d) & 15];
         num[8] = 0;
         o = put(out, o, num);
-        for (unsigned d = 0; d < k->depth; d++) {
+        for (unsigned int d = 0; d < k->depth; d++) {
             decimal(k->path[d] & ~H, num);
             o = put(out, o, "/");
             o = put(out, o, num);

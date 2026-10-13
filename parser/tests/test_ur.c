@@ -128,7 +128,7 @@ int main(void) {
     {
         size_t n = make_message_cbor(expect, 256);
         long rc = 0;
-        unsigned expected, received;
+        unsigned int expected, received;
         ur_decoder_reset(work, sizeof(work));
         for (int i = 0; i < 9 && rc == 0; i++) rc = feed(REF_PARTS[i]);
         CHECK(rc == (long)n && !memcmp(ur_decoder_message(), expect, n), "multipart pure parts");
@@ -179,7 +179,7 @@ int main(void) {
                    "lpaoascfadaxcywenbpljkhdcagwdpfnsboxgwlbaawzuefywkdplrsrjynbvygabwjldapfcsgmghhkhstlrdcxaefz") ==
                   UR_ERR_PART,
               "sequence component disagrees with the part");
-        unsigned expected, received;
+        unsigned int expected, received;
         ur_decoder_progress(&expected, &received);
         CHECK(expected == 9 && received == 1, "progress kept after rejections (%u/%u)", received, expected);
         long rc = 0;

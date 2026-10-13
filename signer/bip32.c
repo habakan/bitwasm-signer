@@ -23,14 +23,14 @@ int bip32_master(const uint8_t seed[64], bip32_node_t *out) {
     return secp256k1_ec_seckey_verify(secp256k1_context_static, out->key);
 }
 
-int bip32_derive(const secp256k1_context *ctx, const bip32_node_t *from, const uint32_t *path, unsigned depth,
+int bip32_derive(const secp256k1_context *ctx, const bip32_node_t *from, const uint32_t *path, unsigned int depth,
                  bip32_node_t *out) {
     uint8_t data[37], I[64];
     hmac_sha512_ctx h;
     int ok = 1;
 
     *out = *from;
-    for (unsigned d = 0; ok && d < depth; d++) {
+    for (unsigned int d = 0; ok && d < depth; d++) {
         if (path[d] & 0x80000000u) {
             data[0] = 0;
             memcpy(data + 1, out->key, 32);

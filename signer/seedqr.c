@@ -18,22 +18,23 @@ static void sha256_of(const uint8_t *p, size_t n, uint8_t out[32]) {
 }
 
 /* Take 11 bits per word index back into entropy. Returns its length in bytes */
-static unsigned indices_entropy(const uint16_t *idx, unsigned n, uint8_t ent[32]) {
-    unsigned ent_bits = n * 11 - n / 3;
+static unsigned int indices_entropy(const uint16_t *idx, unsigned int n, uint8_t ent[32]) {
+    unsigned int ent_bits = n * 11 - n / 3;
     memset(ent, 0, 32);
-    for (unsigned i = 0; i < ent_bits; i++) ent[i / 8] |= (uint8_t)((idx[i / 11] >> (10 - i % 11) & 1) << (7 - i % 8));
+    for (unsigned int i = 0; i < ent_bits; i++)
+        ent[i / 8] |= (uint8_t)((idx[i / 11] >> (10 - i % 11) & 1) << (7 - i % 8));
     return ent_bits / 8;
 }
 
 /* The checksum bits after the entropy, against SHA-256 of it */
-static int checksum_ok(const uint16_t *idx, unsigned n) {
+static int checksum_ok(const uint16_t *idx, unsigned int n) {
     uint8_t ent[32], hash[32];
-    unsigned ent_len = indices_entropy(idx, n, ent), ent_bits = ent_len * 8, cs_bits = n / 3;
+    unsigned int ent_len = indices_entropy(idx, n, ent), ent_bits = ent_len * 8, cs_bits = n / 3;
     int ok = 1;
 
     sha256_of(ent, ent_len, hash);
-    for (unsigned i = 0; i < cs_bits; i++) {
-        unsigned want = hash[0] >> (7 - i) & 1, got = idx[n - 1] >> (10 - (ent_bits % 11 + i)) & 1;
+    for (unsigned int i = 0; i < cs_bits; i++) {
+        unsigned int want = hash[0] >> (7 - i) & 1, got = idx[n - 1] >> (10 - (ent_bits % 11 + i)) & 1;
         ok &= want == got;
     }
     wipe(ent, sizeof(ent));
@@ -41,11 +42,11 @@ static int checksum_ok(const uint16_t *idx, unsigned n) {
     return ok;
 }
 
-static int check_and_build(const uint16_t *idx, unsigned n, char *out, size_t cap) {
+static int check_and_build(const uint16_t *idx, unsigned int n, char *out, size_t cap) {
     size_t len = 0;
 
     if (!checksum_ok(idx, n)) return 0;
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned int i = 0; i < n; i++) {
         size_t w = strnlen(bip39_words[idx[i]], 8);
         if (len + w + 1 >= cap) return wipe(out, len), 0;
         if (i) out[len++] = ' ';
@@ -91,8 +92,8 @@ size_t bip39_normalize(const uint8_t *in, size_t len, uint8_t *out) {
 }
 
 /* The word indices of a valid mnemonic, and how many there are; 0 if it is not one */
-static unsigned parse_mnemonic(const uint8_t *mn, size_t len, uint16_t idx[24]) {
-    unsigned n = 0;
+static unsigned int parse_mnemonic(const uint8_t *mn, size_t len, uint16_t idx[24]) {
+    unsigned int n = 0;
     size_t start = 0;
     for (size_t i = 0; i <= len; i++) {
         if (i < len && mn[i] != ' ') continue;
@@ -114,12 +115,12 @@ int bip39_mnemonic_ok(const uint8_t *mn, size_t len) {
 int seedqr_encode(const uint8_t *mn, size_t len, int compact, uint8_t *out, size_t cap) {
     uint16_t idx[24];
     uint8_t ent[32];
-    unsigned n = parse_mnemonic(mn, len, idx);
+    unsigned int n = parse_mnemonic(mn, len, idx);
     int r = 0;
 
     if ((n == 12 || n == 24) && !compact && cap >= n * 4) {
-        for (unsigned i = 0; i < n; i++)
-            for (unsigned k = 0, v = idx[i]; k < 4; k++, v /= 10) out[i * 4 + 3 - k] = (uint8_t)('0' + v % 10);
+        for (unsigned int i = 0; i < n; i++)
+            for (unsigned int k = 0, v = idx[i]; k < 4; k++, v /= 10) out[i * 4 + 3 - k] = (uint8_t)('0' + v % 10);
         r = (int)n * 4;
     } else if ((n == 12 || n == 24) && compact && cap >= n * 4 / 3) {
         r = (int)indices_entropy(idx, n, ent);
@@ -131,14 +132,14 @@ int seedqr_encode(const uint8_t *mn, size_t len, int compact, uint8_t *out, size
 }
 
 /* Entropy and its SHA-256 checksum, cut into 11-bit word indices. Returns how many words */
-static unsigned entropy_indices(const uint8_t *ent, size_t len, uint16_t idx[24]) {
+static unsigned int entropy_indices(const uint8_t *ent, size_t len, uint16_t idx[24]) {
     uint8_t hash[32];
-    unsigned ent_bits = (unsigned)len * 8, n = ent_bits / 32 * 3;
+    unsigned int ent_bits = (unsigned int)len * 8, n = ent_bits / 32 * 3;
     sha256_of(ent, len, hash);
-    for (unsigned i = 0; i < n; i++) {
-        unsigned v = 0;
-        for (unsigned k = 0; k < 11; k++) {
-            unsigned b = i * 11 + k;
+    for (unsigned int i = 0; i < n; i++) {
+        unsigned int v = 0;
+        for (unsigned int k = 0; k < 11; k++) {
+            unsigned int b = i * 11 + k;
             v = v << 1 | (b < ent_bits ? ent[b / 8] >> (7 - b % 8) & 1 : hash[0] >> (7 - (b - ent_bits)) & 1);
         }
         idx[i] = (uint16_t)v;
@@ -149,17 +150,17 @@ static unsigned entropy_indices(const uint8_t *ent, size_t len, uint16_t idx[24]
 
 int seedqr_decode(const uint8_t *payload, size_t len, char *out, size_t cap) {
     uint16_t idx[24];
-    unsigned n;
+    unsigned int n;
     int r;
 
     if (len == 48 || len == 96) { /* standard SeedQR: four digits per index */
-        n = (unsigned)len / 4;
-        for (unsigned i = 0; i < n; i++) {
-            unsigned v = 0;
-            for (unsigned k = 0; k < 4; k++) {
+        n = (unsigned int)len / 4;
+        for (unsigned int i = 0; i < n; i++) {
+            unsigned int v = 0;
+            for (unsigned int k = 0; k < 4; k++) {
                 uint8_t c = payload[i * 4 + k];
                 if (c < '0' || c > '9') return 0;
-                v = v * 10 + (unsigned)(c - '0');
+                v = v * 10 + (unsigned int)(c - '0');
             }
             if (v > 2047) return 0;
             idx[i] = (uint16_t)v;
@@ -183,7 +184,7 @@ int bip39_mnemonic_from_entropy(const uint8_t *ent, size_t len, char *out, size_
     return r;
 }
 
-int bip39_mnemonic_from_dice(const uint8_t *rolls, size_t len, unsigned words, char *out, size_t cap) {
+int bip39_mnemonic_from_dice(const uint8_t *rolls, size_t len, unsigned int words, char *out, size_t cap) {
     uint8_t hash[32];
     int r;
     if ((words != 12 || len < 50) && (words != 24 || len < 99)) return 0;

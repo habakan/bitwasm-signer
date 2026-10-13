@@ -6,7 +6,7 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     unsigned char *in = parser_input();
-    unsigned cap = parser_input_cap();
+    unsigned int cap = parser_input_cap();
 
     parser_ur_reset();
     while (size) {
@@ -15,11 +15,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         size_t step = nl ? n + 1 : n;
         if (n > cap) n = cap;
         memcpy(in, data, n);
-        int rc = parser_ur_receive((unsigned)n);
+        int rc = parser_ur_receive((unsigned int)n);
         if (rc > 0) {
             /* Complete: the PSBT is in the input buffer, so parse it like a host would */
-            if ((unsigned)rc > cap) __builtin_trap();
-            parser_parse((unsigned)rc, 0x73c5da0au);
+            if ((unsigned int)rc > cap) __builtin_trap();
+            parser_parse((unsigned int)rc, 0x73c5da0au);
             parser_ur_reset();
         }
         data += step;

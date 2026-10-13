@@ -8,9 +8,9 @@ typedef struct {
     size_t n, i;
 } cbor_r_t;
 
-static int head(cbor_r_t *r, unsigned *major, uint64_t *value) {
+static int head(cbor_r_t *r, unsigned int *major, uint64_t *value) {
     uint8_t first, ai;
-    unsigned bytes;
+    unsigned int bytes;
     if (r->i == r->n) return 0;
     first = r->b[r->i++];
     *major = first >> 5;
@@ -22,17 +22,17 @@ static int head(cbor_r_t *r, unsigned *major, uint64_t *value) {
     bytes = ai == 24 ? 1 : ai == 25 ? 2 : ai == 26 ? 4 : ai == 27 ? 8 : 0;
     if (!bytes || bytes > r->n - r->i) return 0;
     *value = 0;
-    for (unsigned j = 0; j < bytes; j++) *value = *value << 8 | r->b[r->i++];
+    for (unsigned int j = 0; j < bytes; j++) *value = *value << 8 | r->b[r->i++];
     return 1;
 }
 
 static int uint(cbor_r_t *r, uint64_t *v) {
-    unsigned major;
+    unsigned int major;
     return head(r, &major, v) && major == 0;
 }
 
 static int tag(cbor_r_t *r, uint64_t expected) {
-    unsigned major;
+    unsigned int major;
     uint64_t v;
     return head(r, &major, &v) && major == 6 && v == expected;
 }
@@ -44,7 +44,7 @@ static int boolean(cbor_r_t *r, int *v) {
 }
 
 static int bytes(cbor_r_t *r, uint8_t *out, size_t expected) {
-    unsigned major;
+    unsigned int major;
     uint64_t n;
     if (!head(r, &major, &n) || major != 2 || n != expected || n > r->n - r->i) return 0;
     memcpy(out, r->b + r->i, (size_t)n);
@@ -52,8 +52,8 @@ static int bytes(cbor_r_t *r, uint8_t *out, size_t expected) {
     return 1;
 }
 
-static int skip(cbor_r_t *r, unsigned depth) {
-    unsigned major;
+static int skip(cbor_r_t *r, unsigned int depth) {
+    unsigned int major;
     uint64_t n;
     if (depth == 10 || !head(r, &major, &n)) return 0;
     if (major == 2 || major == 3) {
@@ -70,7 +70,7 @@ static int skip(cbor_r_t *r, unsigned depth) {
 }
 
 static int map_start(cbor_r_t *r, uint64_t *n) {
-    unsigned major;
+    unsigned int major;
     return head(r, &major, n) && major == 5 && *n <= 32;
 }
 
@@ -84,12 +84,12 @@ static int map_key(cbor_r_t *r, uint64_t *key, uint32_t *seen) {
     return 1;
 }
 
-static int origin_components(cbor_r_t *r, ms_key_t *key, unsigned *count) {
-    unsigned major;
+static int origin_components(cbor_r_t *r, ms_key_t *key, unsigned int *count) {
+    unsigned int major;
     uint64_t n, index;
     if (!head(r, &major, &n) || major != 4 || n % 2 || n / 2 > MS_MAX_DEPTH) return 0;
-    *count = (unsigned)n / 2;
-    for (unsigned i = 0; i < *count; i++) {
+    *count = (unsigned int)n / 2;
+    for (unsigned int i = 0; i < *count; i++) {
         int hardened;
         if (!uint(r, &index) || index >= H || !boolean(r, &hardened) || !hardened) return 0;
         key->path[i] = (uint32_t)index | H;
@@ -100,7 +100,7 @@ static int origin_components(cbor_r_t *r, ms_key_t *key, unsigned *count) {
 static int keypath_origin(cbor_r_t *r, ms_key_t *key) {
     uint64_t n, field, v;
     uint32_t seen = 0;
-    unsigned count = 0;
+    unsigned int count = 0;
     int have_components = 0, have_fingerprint = 0, have_depth = 0;
     if (!tag(r, 304) || !map_start(r, &n)) return 0;
     for (uint64_t i = 0; i < n; i++) {
@@ -124,7 +124,7 @@ static int keypath_origin(cbor_r_t *r, ms_key_t *key) {
 }
 
 static int keypath_children(cbor_r_t *r) {
-    unsigned major;
+    unsigned int major;
     uint64_t n, v;
     uint32_t seen = 0;
     int hardened;
@@ -150,7 +150,7 @@ static int keypath_children(cbor_r_t *r) {
 static int coin_info(cbor_r_t *r, int testnet) {
     uint64_t n, field, v;
     uint32_t seen = 0;
-    unsigned network = 0;
+    unsigned int network = 0;
     if (!tag(r, 305) || !map_start(r, &n)) return 0;
     for (uint64_t i = 0; i < n; i++) {
         if (!map_key(r, &field, &seen)) return 0;
@@ -158,10 +158,10 @@ static int coin_info(cbor_r_t *r, int testnet) {
             if (!uint(r, &v) || v != 0) return 0;
         } else if (field == 2) {
             if (!uint(r, &v) || v > 1) return 0;
-            network = (unsigned)v;
+            network = (unsigned int)v;
         } else if (!skip(r, 0)) return 0;
     }
-    return network == (unsigned)testnet;
+    return network == (unsigned int)testnet;
 }
 
 static int hdkey(cbor_r_t *r, int testnet, ms_key_t *key) {
@@ -232,9 +232,9 @@ int ms_cbor_descriptor(const uint8_t *cbor, size_t len, int testnet, char out[MS
             wallet.threshold = (uint8_t)v;
             have_threshold = 1;
         } else if (field == 2) {
-            unsigned major;
+            unsigned int major;
             if (!head(&r, &major, &key_count) || major != 4 || key_count < 2 || key_count > MS_MAX_KEYS) return 0;
-            for (unsigned j = 0; j < key_count; j++)
+            for (unsigned int j = 0; j < key_count; j++)
                 if (!hdkey(&r, testnet, &wallet.keys[j])) return 0;
             wallet.n = (uint8_t)key_count;
             have_keys = 1;

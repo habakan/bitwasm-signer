@@ -14,9 +14,9 @@ typedef struct {
     size_t n, cap; /* n past cap means it did not fit */
 } cbor_t;
 
-void cbor_head(cbor_t *c, unsigned major, uint64_t v);
+void cbor_head(cbor_t *c, unsigned int major, uint64_t v);
 /* crypto-hdkey (tag 303) for an xpub as serialized, with its origin as crypto-keypath (304) */
-void cbor_hdkey(cbor_t *c, const uint8_t ser[78], uint32_t fingerprint, const uint32_t *path, unsigned depth,
+void cbor_hdkey(cbor_t *c, const uint8_t ser[78], uint32_t fingerprint, const uint32_t *path, unsigned int depth,
                 int testnet, int multisig_children);
 
 #endif

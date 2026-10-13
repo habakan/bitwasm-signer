@@ -1,14 +1,14 @@
 #include "cbor.h"
 #include <string.h>
 
-void cbor_head(cbor_t *c, unsigned major, uint64_t v) {
-    unsigned extra = v < 24 ? 0 : v < 0x100 ? 1 : v < 0x10000 ? 2 : v < 0x100000000ull ? 4 : 8;
+void cbor_head(cbor_t *c, unsigned int major, uint64_t v) {
+    unsigned int extra = v < 24 ? 0 : v < 0x100 ? 1 : v < 0x10000 ? 2 : v < 0x100000000ull ? 4 : 8;
     if (c->n + 1 + extra > c->cap) {
         c->n = c->cap + 1;
         return;
     }
     c->b[c->n++] = (uint8_t)(major << 5 | (extra == 0 ? v : extra == 1 ? 24 : extra == 2 ? 25 : extra == 4 ? 26 : 27));
-    for (unsigned k = extra; k > 0; k--) c->b[c->n++] = (uint8_t)(v >> (8 * (k - 1)));
+    for (unsigned int k = extra; k > 0; k--) c->b[c->n++] = (uint8_t)(v >> (8 * (k - 1)));
 }
 
 static void bytes(cbor_t *c, const uint8_t *p, size_t n) {
@@ -21,7 +21,7 @@ static void bytes(cbor_t *c, const uint8_t *p, size_t n) {
     c->n += n;
 }
 
-void cbor_hdkey(cbor_t *c, const uint8_t ser[78], uint32_t fingerprint, const uint32_t *path, unsigned depth,
+void cbor_hdkey(cbor_t *c, const uint8_t ser[78], uint32_t fingerprint, const uint32_t *path, unsigned int depth,
                 int testnet, int multisig_children) {
     cbor_head(c, CBOR_TAG, 303);
     cbor_head(c, CBOR_MAP, 4 + testnet + multisig_children);
@@ -33,7 +33,7 @@ void cbor_hdkey(cbor_t *c, const uint8_t ser[78], uint32_t fingerprint, const ui
     }
     cbor_head(c, CBOR_UINT, 6), cbor_head(c, CBOR_TAG, 304), cbor_head(c, CBOR_MAP, 2 + multisig_children);
     cbor_head(c, CBOR_UINT, 1), cbor_head(c, CBOR_ARRAY, 2 * depth);
-    for (unsigned i = 0; i < depth; i++) {
+    for (unsigned int i = 0; i < depth; i++) {
         cbor_head(c, CBOR_UINT, path[i] & 0x7fffffffu);
         cbor_head(c, CBOR_SIMPLE, path[i] >> 31 ? 21 : 20);
     }

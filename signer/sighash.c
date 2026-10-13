@@ -29,19 +29,19 @@ static void h_output(sha256_ctx *h, const plan_output_t *o) {
 }
 
 /* code is the scriptCode with its compact size, which is one byte for both scripts here */
-static void bip143(const plan_t *p, unsigned index, const uint8_t *code, size_t code_len, uint8_t out[32]) {
+static void bip143(const plan_t *p, unsigned int index, const uint8_t *code, size_t code_len, uint8_t out[32]) {
     const plan_input_t *in = &p->inputs[index];
     uint8_t prevouts[32], sequences[32], outputs[32];
     sha256_ctx h;
 
     sha256_init(&h);
-    for (unsigned i = 0; i < p->n_inputs; i++) h_outpoint(&h, &p->inputs[i]);
+    for (unsigned int i = 0; i < p->n_inputs; i++) h_outpoint(&h, &p->inputs[i]);
     sha256d_final(&h, prevouts);
     sha256_init(&h);
-    for (unsigned i = 0; i < p->n_inputs; i++) h_le(&h, p->inputs[i].sequence, 4);
+    for (unsigned int i = 0; i < p->n_inputs; i++) h_le(&h, p->inputs[i].sequence, 4);
     sha256d_final(&h, sequences);
     sha256_init(&h);
-    for (unsigned i = 0; i < p->n_outputs; i++) h_output(&h, &p->outputs[i]);
+    for (unsigned int i = 0; i < p->n_outputs; i++) h_output(&h, &p->outputs[i]);
     sha256d_final(&h, outputs);
 
     sha256_init(&h);
@@ -58,7 +58,7 @@ static void bip143(const plan_t *p, unsigned index, const uint8_t *code, size_t 
     sha256d_final(&h, out);
 }
 
-int sighash_bip143_p2wpkh(const plan_t *p, unsigned index, const uint8_t pkh[20], uint8_t out[32]) {
+int sighash_bip143_p2wpkh(const plan_t *p, unsigned int index, const uint8_t pkh[20], uint8_t out[32]) {
     const plan_input_t *in = &p->inputs[index];
     uint8_t redeem[22] = {0x00, 20}, sh[20], code[26] = {0x19, 0x76, 0xa9, 0x14};
 
@@ -75,7 +75,7 @@ int sighash_bip143_p2wpkh(const plan_t *p, unsigned index, const uint8_t pkh[20]
     return 1;
 }
 
-int sighash_bip143_p2wsh(const plan_t *p, unsigned index, const plan_wscript_t *ws, uint8_t out[32]) {
+int sighash_bip143_p2wsh(const plan_t *p, unsigned int index, const plan_wscript_t *ws, uint8_t out[32]) {
     const plan_input_t *in = &p->inputs[index];
     uint8_t h[32], code[1 + PLAN_MAX_WSCRIPT];
 
@@ -89,7 +89,7 @@ int sighash_bip143_p2wsh(const plan_t *p, unsigned index, const plan_wscript_t *
     return 1;
 }
 
-int sighash_bip341_keypath(const secp256k1_context *ctx, const plan_t *p, unsigned index, uint8_t hash_type,
+int sighash_bip341_keypath(const secp256k1_context *ctx, const plan_t *p, unsigned int index, uint8_t hash_type,
                            uint8_t out[32]) {
     /* epoch(1) + hash_type(1) + version/locktime(8) + sha_*(5x32) + spend_type(1) + input(at most 36+8+84+4) +
      * single(32) */
@@ -107,21 +107,21 @@ int sighash_bip341_keypath(const secp256k1_context *ctx, const plan_t *p, unsign
     put_le(msg + n, p->locktime, 4), n += 4;
     if (!acp) {
         sha256_init(&h);
-        for (unsigned i = 0; i < p->n_inputs; i++) h_outpoint(&h, &p->inputs[i]);
+        for (unsigned int i = 0; i < p->n_inputs; i++) h_outpoint(&h, &p->inputs[i]);
         sha256_final(&h, msg + n), n += 32;
         sha256_init(&h);
-        for (unsigned i = 0; i < p->n_inputs; i++) h_le(&h, p->inputs[i].amount, 8);
+        for (unsigned int i = 0; i < p->n_inputs; i++) h_le(&h, p->inputs[i].amount, 8);
         sha256_final(&h, msg + n), n += 32;
         sha256_init(&h);
-        for (unsigned i = 0; i < p->n_inputs; i++) h_script(&h, &p->inputs[i].spk);
+        for (unsigned int i = 0; i < p->n_inputs; i++) h_script(&h, &p->inputs[i].spk);
         sha256_final(&h, msg + n), n += 32;
         sha256_init(&h);
-        for (unsigned i = 0; i < p->n_inputs; i++) h_le(&h, p->inputs[i].sequence, 4);
+        for (unsigned int i = 0; i < p->n_inputs; i++) h_le(&h, p->inputs[i].sequence, 4);
         sha256_final(&h, msg + n), n += 32;
     }
     if (out_type != 2 && out_type != 3) {
         sha256_init(&h);
-        for (unsigned i = 0; i < p->n_outputs; i++) h_output(&h, &p->outputs[i]);
+        for (unsigned int i = 0; i < p->n_outputs; i++) h_output(&h, &p->outputs[i]);
         sha256_final(&h, msg + n), n += 32;
     }
     msg[n++] = 0; /* spend_type: key path, no annex */

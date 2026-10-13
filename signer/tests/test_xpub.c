@@ -25,7 +25,7 @@ static void b58(const char *s, uint8_t b[82]) {
     static const char *a = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     memset(b, 0, 82);
     for (; *s; s++) {
-        unsigned carry = (unsigned)(strchr(a, *s) - a);
+        unsigned int carry = (unsigned int)(strchr(a, *s) - a);
         for (int i = 81; i >= 0; i--) {
             carry += 58u * b[i];
             b[i] = (uint8_t)carry;

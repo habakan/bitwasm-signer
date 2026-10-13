@@ -22,13 +22,13 @@ static int ok(const char *mn) {
 }
 
 int main(void) {
-    for (unsigned i = 0; i < sizeof(bip39_vectors) / sizeof(bip39_vectors[0]); i++) {
+    for (unsigned int i = 0; i < sizeof(bip39_vectors) / sizeof(bip39_vectors[0]); i++) {
         const char *mn = bip39_vectors[i].mnemonic;
         uint8_t seed[64];
         char hex[129];
         CHECK(ok(mn), "vector %u accepted", i);
         pbkdf2_hmac_sha512((const uint8_t *)mn, strlen(mn), (const uint8_t *)"mnemonicTREZOR", 14, 2048, seed);
-        for (unsigned k = 0; k < 64; k++) snprintf(hex + 2 * k, 3, "%02x", seed[k]);
+        for (unsigned int k = 0; k < 64; k++) snprintf(hex + 2 * k, 3, "%02x", seed[k]);
         CHECK(!strcmp(hex, bip39_vectors[i].seed), "vector %u seed", i);
     }
 
@@ -75,7 +75,7 @@ int main(void) {
     }
 
     /* generating: entropy to words, against the same vectors, and dice rolls to words */
-    for (unsigned i = 0; i < sizeof(bip39_vectors) / sizeof(bip39_vectors[0]); i++) {
+    for (unsigned int i = 0; i < sizeof(bip39_vectors) / sizeof(bip39_vectors[0]); i++) {
         uint8_t ent[32];
         char out[256];
         size_t n = strlen(bip39_vectors[i].entropy) / 2;
@@ -84,9 +84,9 @@ int main(void) {
                   !strcmp(out, bip39_vectors[i].mnemonic),
               "vector %u from entropy", i);
     }
-    for (unsigned i = 0; i < sizeof(dice_vectors) / sizeof(dice_vectors[0]); i++) {
+    for (unsigned int i = 0; i < sizeof(dice_vectors) / sizeof(dice_vectors[0]); i++) {
         const char *r = dice_vectors[i].rolls;
-        unsigned words = strlen(r) >= 99 ? 24 : 12;
+        unsigned int words = strlen(r) >= 99 ? 24 : 12;
         char out[256];
         CHECK(bip39_mnemonic_from_dice((const uint8_t *)r, strlen(r), words, out, sizeof(out)) > 0 &&
                   !strcmp(out, dice_vectors[i].mnemonic),
@@ -106,7 +106,8 @@ int main(void) {
         CHECK(!bip39_mnemonic_from_entropy(zero, 32, out, 100), "a small buffer refused");
         {
             int clean = 1;
-            for (unsigned k = 0; k < 100; k++) clean &= out[k] == 0 || out[k] == 0x55; /* cleared, or never written */
+            for (unsigned int k = 0; k < 100; k++)
+                clean &= out[k] == 0 || out[k] == 0x55; /* cleared, or never written */
             CHECK(clean, "and none of the words written before it ran out are left");
         }
         CHECK(sizeof(rolls) - 1 == 99, "99 rolls");

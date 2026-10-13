@@ -17,37 +17,37 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     unsigned char *in = parser_input();
-    unsigned cap = parser_input_cap();
-    unsigned fp;
+    unsigned int cap = parser_input_cap();
+    unsigned int fp;
 
     /* The first 4 bytes pick the fingerprint, so derivations sometimes match and sometimes do not */
     if (size < 4) return 0;
-    fp = (unsigned)data[0] << 24 | (unsigned)data[1] << 16 | (unsigned)data[2] << 8 | data[3];
+    fp = (unsigned int)data[0] << 24 | (unsigned int)data[1] << 16 | (unsigned int)data[2] << 8 | data[3];
     data += 4;
     size -= 4;
     if (size > cap) size = cap;
     memcpy(in, data, size);
 
-    if (parser_parse((unsigned)size, fp) != P_OK) return 0;
+    if (parser_parse((unsigned int)size, fp) != P_OK) return 0;
 
     /* A host reads these next; make sure they stay inside the input buffer */
     const plan_t *p = parser_plan();
     MUST(p->magic == PLAN_MAGIC && p->version == PLAN_VERSION);
     MUST(p->n_inputs <= PLAN_MAX_INPUTS && p->n_outputs <= PLAN_MAX_OUTPUTS);
-    for (unsigned i = 0; i < p->n_inputs; i++) {
-        unsigned off = parser_prevtx_off(i), len = parser_prevtx_len(i);
+    for (unsigned int i = 0; i < p->n_inputs; i++) {
+        unsigned int off = parser_prevtx_off(i), len = parser_prevtx_len(i);
         MUST(!len || (off <= cap && len <= cap - off));
         MUST(p->inputs[i].spk.len <= PLAN_MAX_SPK);
         MUST(p->inputs[i].key.depth <= PLAN_MAX_DEPTH);
     }
-    for (unsigned i = 0; i < PLAN_MAX_INPUTS; i++) {
+    for (unsigned int i = 0; i < PLAN_MAX_INPUTS; i++) {
         const plan_wscript_t *w = &p->wscripts[i];
         MUST(w->len <= PLAN_MAX_WSCRIPT);
-        for (unsigned k = w->len; k < PLAN_MAX_WSCRIPT; k++) MUST(!w->bytes[k]);
+        for (unsigned int k = w->len; k < PLAN_MAX_WSCRIPT; k++) MUST(!w->bytes[k]);
         MUST(!w->len || (i < p->n_inputs && p->inputs[i].spk.len == 34 && p->inputs[i].spk.bytes[0] == 0 &&
                          p->inputs[i].spk.bytes[1] == 32 && p->inputs[i].key.depth));
     }
-    for (unsigned i = 0; i < p->n_outputs; i++) {
+    for (unsigned int i = 0; i < p->n_outputs; i++) {
         MUST(p->outputs[i].spk.len <= PLAN_MAX_SPK);
         MUST(p->outputs[i].key.depth <= PLAN_MAX_DEPTH);
     }

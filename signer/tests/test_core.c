@@ -116,18 +116,18 @@ static void test_bip341(void) {
     plan_t p;
 
     CHECK(plan_from_tx(TV341_TX, sizeof(TV341_TX), &p), "bip341 parse");
-    for (unsigned i = 0; i < p.n_inputs; i++) {
+    for (unsigned int i = 0; i < p.n_inputs; i++) {
         p.inputs[i].amount = TV341_UTXOS[i].amount;
         set_spk(&p.inputs[i].spk, TV341_UTXOS[i].spk, TV341_UTXOS[i].len);
     }
-    for (unsigned s = 0; s < sizeof(TV341_SPENDS) / sizeof(TV341_SPENDS[0]); s++) {
+    for (unsigned int s = 0; s < sizeof(TV341_SPENDS) / sizeof(TV341_SPENDS[0]); s++) {
         const typeof(TV341_SPENDS[0]) *v = &TV341_SPENDS[s];
         CHECK(sighash_bip341_keypath(ctx, &p, v->index, v->hash_type, digest) && !memcmp(digest, v->sighash, 32),
-              "bip341 sighash input %u type 0x%02x", (unsigned)v->index, v->hash_type);
+              "bip341 sighash input %u type 0x%02x", (unsigned int)v->index, v->hash_type);
         CHECK(secp256k1_keypair_create(ctx, &kp, v->tweaked) &&
                   secp256k1_schnorrsig_sign32(ctx, sig, digest, &kp, aux) && !memcmp(sig, v->sig, 64) &&
                   (v->sig_len == 64 || v->sig[64] == v->hash_type),
-              "bip341 signature input %u", (unsigned)v->index);
+              "bip341 signature input %u", (unsigned int)v->index);
     }
     secp256k1_context_destroy(ctx);
 }
@@ -179,7 +179,7 @@ static void test_review_and_sign(void) {
     uint8_t raw0[256], raw1[256], digest[32];
     core_review_t r;
     core_sig_t sigs[PLAN_MAX_INPUTS];
-    unsigned n;
+    unsigned int n;
     plan_t p, q;
 
     CHECK(core_review(&(plan_t){0}, NULL, &r) == CORE_ERR_NO_SEED, "no seed");
@@ -318,7 +318,7 @@ static void test_review_and_sign(void) {
     memset(&p, 0, sizeof(p));
     p.magic = PLAN_MAGIC, p.version = PLAN_VERSION, p.tx_version = 2;
     p.n_inputs = 2, p.n_outputs = 1;
-    for (unsigned i = 0; i < 2; i++) {
+    for (unsigned int i = 0; i < 2; i++) {
         memset(p.inputs[i].prev_txid, 0xbb + i, 32);
         p.inputs[i].amount = 70000;
         set_spk(&p.inputs[i].spk, i ? TV_SPK_P2TR_0_1 : TV_SPK_P2TR_0_0, 34);
@@ -330,7 +330,7 @@ static void test_review_and_sign(void) {
     set_key(&p.outputs[0].key, 86 | H, H, H, 1, 0);
     CHECK(core_review(&p, NULL, &r) == CORE_OK && r.owner[0] == CORE_OUT_CHANGE && r.n_sign == 2, "p2tr review");
     CHECK(core_sign(&p, zero_rng, sigs, &n) == CORE_OK && n == 2, "p2tr sign");
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned int i = 0; i < n; i++) {
         secp256k1_xonly_pubkey xpub;
         CHECK(sighash_bip341_keypath(ctx, &p, i, p.inputs[i].sighash_type, digest) &&
                   !memcmp(sigs[i].pubkey + 1, p.inputs[i].spk.bytes + 2, 32) &&
@@ -372,17 +372,17 @@ static void test_address(void) {
     uint8_t spk[64];
     char out[ADDRESS_MAX];
 
-    for (unsigned i = 0; i < sizeof(v350) / sizeof(v350[0]); i++) {
+    for (unsigned int i = 0; i < sizeof(v350) / sizeof(v350[0]); i++) {
         size_t n = strlen(v350[i].spk) / 2;
         unhex(v350[i].spk, spk);
         CHECK(address_encode(spk, n, v350[i].addr[0] == 't', out) && !strcmp(out, v350[i].addr), "bip350 %u: %s", i,
               out);
     }
-    for (unsigned i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+    for (unsigned int i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
         unhex(bad[i], spk);
         CHECK(!address_encode(spk, strlen(bad[i]) / 2, 0, out), "invalid program %u encoded as %s", i, out);
     }
-    for (unsigned i = 0; i < sizeof(TV_B58) / sizeof(TV_B58[0]); i++)
+    for (unsigned int i = 0; i < sizeof(TV_B58) / sizeof(TV_B58[0]); i++)
         CHECK(address_encode(TV_B58[i].spk, TV_B58[i].len, TV_B58[i].testnet, out) && !strcmp(out, TV_B58[i].addr),
               "base58 %u: %s != %s", i, out, TV_B58[i].addr);
     CHECK(address_encode(TV_SPK_P2WPKH_0_0, 22, 0, out) && !strcmp(out, "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"),
@@ -416,7 +416,7 @@ static void test_anti_exfil(void) {
     core_review_t r;
     core_sig_t sigs[PLAN_MAX_INPUTS];
     secp256k1_ecdsa_signature sig;
-    unsigned n;
+    unsigned int n;
     plan_t p;
 
     memset(n0, 0x11, 32), memset(n1, 0x22, 32);
@@ -451,7 +451,7 @@ static void test_anti_exfil(void) {
     memset(&p, 0, sizeof(p));
     p.magic = PLAN_MAGIC, p.version = PLAN_VERSION, p.tx_version = 2;
     p.n_inputs = 2, p.n_outputs = 1;
-    for (unsigned i = 0; i < 2; i++) {
+    for (unsigned int i = 0; i < 2; i++) {
         memset(p.inputs[i].prev_txid, 0xbb + i, 32);
         p.inputs[i].amount = 70000;
         set_spk(&p.inputs[i].spk, i ? TV_SPK_P2TR_0_1 : TV_SPK_P2TR_0_0, 34);
