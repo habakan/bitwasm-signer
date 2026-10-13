@@ -123,6 +123,13 @@ int main(void) {
     CHECK(n > 0 && cbor[0] == 0xd9 && cbor[1] == 0x01 && cbor[2] == 0x91 && cbor[3] == 0xd9 && cbor[4] == 0x01 &&
               cbor[5] == 0x97,
           "crypto-output starts wsh (401), sortedmulti (407)");
+    CHECK(core_multisig_load_cbor(cbor, (size_t)n, &ms) == CORE_OK && !strcmp(ms.descriptor, DESC "#" CHECKSUM) &&
+              !strcmp(ms.receive, RECEIVE0),
+          "crypto-output CBOR registers the same wallet and receive address");
+    CHECK(core_multisig_load_cbor(cbor, 1, &ms) == CORE_ERR_FORMAT &&
+              core_multisig_cbor(cbor, sizeof(cbor)) == -CORE_ERR_WALLET,
+          "malformed crypto-output leaves no registered wallet");
+    CHECK(load(DESC) == CORE_OK, "descriptor reloads after malformed CBOR");
     n = core_account_cbor(0, cbor, sizeof(cbor));
     CHECK(n > 0 && cbor[0] == 0xa2 && cbor[1] == 0x01 && cbor[2] == 0x1a && cbor[3] == 0x73 && cbor[7] == 0x02 &&
               cbor[8] == 0x84,

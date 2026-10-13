@@ -62,14 +62,15 @@ export class Parser {
     /** Drop decoder state before a new animated QR. */
     urReset(): void;
     /**
-     * Feed one UR part. Returns the PSBT once the message is complete, otherwise null.
+     * Feed one UR part. Returns the completed PSBT, bytes, or crypto-output CBOR, otherwise null.
      * @param {string|Uint8Array} part one QR payload
      */
     urReceive(part: string | Uint8Array): Uint8Array<ArrayBuffer> | null;
     /** Parts received so far. For a progress display only. */
     get urProgress(): number;
-    /** What the UR urReceive() completed was: "psbt", or "bytes" (a BSMS record or a descriptor, as text). */
-    get urKind(): "bytes" | "psbt";
+    /** What urReceive() completed: "psbt", "bytes", or "crypto-output" CBOR.
+     * @returns {"psbt" | "bytes" | "crypto-output"} */
+    get urKind(): "psbt" | "bytes" | "crypto-output";
     /**
      * Encode a signed PSBT as animated QR parts.
      * @returns {{ seqLen: number, next: () => string }}

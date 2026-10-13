@@ -186,7 +186,7 @@ class Parser(parserWasm: ByteArray, sha256: String? = null) {
     /** Drop decoder state before a new animated QR. */
     fun urReset() { call("parser_ur_reset") }
 
-    /** Feed one UR part. Returns the PSBT once the message is complete, otherwise null. */
+    /** Feed one UR part. Returns the completed PSBT, bytes, or crypto-output CBOR, otherwise null. */
     fun urReceive(part: String): ByteArray? {
         planAvailable = false
         val raw = part.toByteArray()
@@ -199,8 +199,9 @@ class Parser(parserWasm: ByteArray, sha256: String? = null) {
     /** Parts received so far. For a progress display only. */
     val urProgress: Int get() = call("parser_ur_progress")
 
-    /** What the UR [urReceive] completed was: false a PSBT, true bytes (a BSMS record or a descriptor, as text). */
-    val urIsBytes: Boolean get() = call("parser_ur_kind") == 1
+    /** What [urReceive] completed: a PSBT, bytes, or crypto-output CBOR. */
+    val urKind: String get() = when (call("parser_ur_kind")) { 1 -> "bytes"; 2 -> "crypto-output"; else -> "psbt" }
+    val urIsBytes: Boolean get() = urKind == "bytes"
 
     /** Encode CBOR signer.wasm made (accountCbor or multisigCbor) as crypto-account or crypto-output payloads. */
     fun urEncodeCbor(account: Boolean, cbor: ByteArray, fragmentLen: Int = 100): UrEncoder {

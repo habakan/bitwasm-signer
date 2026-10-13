@@ -486,11 +486,22 @@ public final class Signer {
     /// Coldcard setup file. Show what this returns, the receive address above all, before trusting it. Loading
     /// another seed unloads it.
     public func multisigLoad(_ text: [UInt8]) throws -> Multisig {
+        try loadMultisig(text, cbor: false)
+    }
+
+    /// Registers a BIP48 sortedmulti wallet from its typed crypto-output CBOR.
+    public func multisigLoadCbor(_ cbor: [UInt8]) throws -> Multisig {
+        try loadMultisig(cbor, cbor: true)
+    }
+
+    private func loadMultisig(_ raw: [UInt8], cbor: Bool) throws -> Multisig {
         let cap = inputCapacity
-        guard text.count <= cap else { throw SignerError.tooLarge(size: text.count, capacity: cap) }
-        try write(text, at: Int(try call("signer_input")))
-        let rc = try call("signer_multisig_load", [.i32(UInt32(text.count))])
-        guard rc == 0 else { throw SignerError.refused(stage: "multisigLoad", code: rc) }
+        guard raw.count <= cap else { throw SignerError.tooLarge(size: raw.count, capacity: cap) }
+        try write(raw, at: Int(try call("signer_input")))
+        let stage = cbor ? "multisigLoadCbor" : "multisigLoad"
+        let name = cbor ? "signer_multisig_load_cbor" : "signer_multisig_load"
+        let rc = try call(name, [.i32(UInt32(raw.count))])
+        guard rc == 0 else { throw SignerError.refused(stage: stage, code: rc) }
         let at = Int(try call("signer_multisig_output"))
         let fps = try bytes(at + L.msFingerprints, 4 * Int(try u8(at + L.msN)))
         return Multisig(

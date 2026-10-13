@@ -27,6 +27,8 @@ typedef struct {
 
 /* 1 on success. address is the first receive address a BSMS record states, or empty */
 int ms_parse(const char *s, size_t len, int testnet, ms_wallet_t *w, char address[ADDRESS_MAX]);
+/* Accepts BCR-2020-010 crypto-output CBOR for the firmware's BIP48 multipath sortedmulti wallets */
+int ms_cbor_descriptor(const uint8_t *cbor, size_t len, int testnet, char out[MS_DESC_MAX]);
 /* The witness script at chain/index, keys sorted as sortedmulti() sorts them */
 int ms_wscript(const ms_wallet_t *w, uint32_t chain, uint32_t index, plan_wscript_t *out);
 /* wsh(sortedmulti(...)) with xpub / tpub, <0;1> children and its checksum. Returns its length, or 0 */

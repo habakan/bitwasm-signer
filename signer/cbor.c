@@ -22,22 +22,30 @@ static void bytes(cbor_t *c, const uint8_t *p, size_t n) {
 }
 
 void cbor_hdkey(cbor_t *c, const uint8_t ser[78], uint32_t fingerprint, const uint32_t *path, unsigned depth,
-                int testnet) {
+                int testnet, int multisig_children) {
     cbor_head(c, CBOR_TAG, 303);
-    cbor_head(c, CBOR_MAP, testnet ? 5 : 4);
+    cbor_head(c, CBOR_MAP, 4 + testnet + multisig_children);
     cbor_head(c, CBOR_UINT, 3), bytes(c, ser + 45, 33);
     cbor_head(c, CBOR_UINT, 4), bytes(c, ser + 13, 32);
     if (testnet) { /* crypto-coininfo: bitcoin's testnet. Mainnet is the default and left out */
         cbor_head(c, CBOR_UINT, 5), cbor_head(c, CBOR_TAG, 305);
         cbor_head(c, CBOR_MAP, 1), cbor_head(c, CBOR_UINT, 2), cbor_head(c, CBOR_UINT, 1);
     }
-    cbor_head(c, CBOR_UINT, 6), cbor_head(c, CBOR_TAG, 304), cbor_head(c, CBOR_MAP, 2);
+    cbor_head(c, CBOR_UINT, 6), cbor_head(c, CBOR_TAG, 304), cbor_head(c, CBOR_MAP, 2 + multisig_children);
     cbor_head(c, CBOR_UINT, 1), cbor_head(c, CBOR_ARRAY, 2 * depth);
     for (unsigned i = 0; i < depth; i++) {
         cbor_head(c, CBOR_UINT, path[i] & 0x7fffffffu);
         cbor_head(c, CBOR_SIMPLE, path[i] >> 31 ? 21 : 20);
     }
     cbor_head(c, CBOR_UINT, 2), cbor_head(c, CBOR_UINT, fingerprint);
+    if (multisig_children) {
+        cbor_head(c, CBOR_UINT, 3), cbor_head(c, CBOR_UINT, ser[4]);
+        cbor_head(c, CBOR_UINT, 7), cbor_head(c, CBOR_TAG, 304), cbor_head(c, CBOR_MAP, 1);
+        cbor_head(c, CBOR_UINT, 1), cbor_head(c, CBOR_ARRAY, 3);
+        cbor_head(c, CBOR_ARRAY, 4), cbor_head(c, CBOR_UINT, 0), cbor_head(c, CBOR_SIMPLE, 20);
+        cbor_head(c, CBOR_UINT, 1), cbor_head(c, CBOR_SIMPLE, 20);
+        cbor_head(c, CBOR_ARRAY, 0), cbor_head(c, CBOR_SIMPLE, 20);
+    }
     cbor_head(c, CBOR_UINT, 8);
     cbor_head(c, CBOR_UINT, (uint32_t)ser[5] << 24 | (uint32_t)ser[6] << 16 | (uint32_t)ser[7] << 8 | ser[8]);
 }

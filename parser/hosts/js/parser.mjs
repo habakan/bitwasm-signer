@@ -280,7 +280,7 @@ export class Parser {
   urReset() { this.exports.parser_ur_reset(); }
 
   /**
-   * Feed one UR part. Returns the PSBT once the message is complete, otherwise null.
+   * Feed one UR part. Returns the completed PSBT, bytes, or crypto-output CBOR, otherwise null.
    * @param {string|Uint8Array} part one QR payload
    */
   urReceive(part) {
@@ -296,8 +296,12 @@ export class Parser {
   /** Parts received so far. For a progress display only. */
   get urProgress() { return this.exports.parser_ur_progress(); }
 
-  /** What the UR urReceive() completed was: "psbt", or "bytes" (a BSMS record or a descriptor, as text). */
-  get urKind() { return this.exports.parser_ur_kind() === 1 ? "bytes" : "psbt"; }
+  /** What urReceive() completed: "psbt", "bytes", or "crypto-output" CBOR.
+   * @returns {"psbt" | "bytes" | "crypto-output"} */
+  get urKind() {
+    const kinds = /** @type {const} */ (["psbt", "bytes", "crypto-output"]);
+    return kinds[this.exports.parser_ur_kind()] ?? "psbt";
+  }
 
   /**
    * Encode a signed PSBT as animated QR parts.

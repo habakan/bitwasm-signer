@@ -102,6 +102,7 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_find_address(len, account, count)` | where the address in `signer_input()` is on m/purpose'/coin'/account', receive then change, indices 0 to `count`-1: `chain << 20 \| index`, or the negated error; `NOT_FOUND` when it is not there. See below |
 | `signer_fingerprint()` | the master fingerprint, or 0 when no seed is loaded |
 | `signer_multisig_load(len)` | 0 on success. Registers the multisig in the input buffer; see below |
+| `signer_multisig_load_cbor(len)` | 0 on success. Registers a BCR-2020-010 `crypto-output` CBOR payload from the input buffer; see below |
 | `signer_multisig_unload()` | nothing. Forgets the registered multisig |
 | `signer_account_cbor(account)` | the length of a crypto-account in `signer_cbor_output()`, or the negated error |
 | `signer_multisig_cbor()` | the length of the registered multisig's crypto-output, or `-WALLET` when there is none |
@@ -126,9 +127,10 @@ interpreter, on an M-series Mac. Chicory and WasmKit are slower still, so their 
 Without a registered wallet, a P2WSH input is signed when its witness script is a multisig of at most three
 keys that hashes to its script and holds our key, and P2WSH change is shown as an external output: the signer
 cannot tell the cosigners' keys from anyone else's. `signer_multisig_load` gives it those keys. It takes a
-`wsh(sortedmulti(k,...))` descriptor (with `/<0;1>/*`, `/**` or `/0/*` after each key, and its checksum checked
-when there is one), a BSMS 1.0 record (BIP129), or the setup file Coldcard reads and Sparrow, BlueWallet and
-Nunchuk write. Keys are xpub or tpub, or SLIP-132's Zpub or Vpub, and every origin step is hardened.
+`signer_multisig_load` accepts a `wsh(sortedmulti(k,...))` descriptor (with `/<0;1>/*`, `/**` or `/0/*` after
+each key, and its checksum checked when present), a BSMS 1.0 record (BIP129), or the Coldcard setup file.
+`signer_multisig_load_cbor` accepts a BCR-2020-010 `crypto-output` for the same BIP48 multipath wallet shape.
+Keys are xpub or tpub, or SLIP-132's Zpub or Vpub, and every origin step is hardened.
 
 It is refused with `FORMAT` for anything else, a key twice, a threshold above the key count or a key on the
 other network, and with `WALLET` unless exactly one key is ours: the seed re-derives it at its origin, chain code

@@ -248,6 +248,15 @@ export class Signer {
         receive: string;
         descriptor: string;
     };
+    /** Registers a BIP48 sortedmulti wallet from its typed crypto-output CBOR. */
+    /** @param {Uint8Array} cbor */
+    multisigLoadCbor(cbor: Uint8Array): {
+        threshold: number;
+        ours: number;
+        fingerprints: string[];
+        receive: string;
+        descriptor: string;
+    };
     multisigUnload(): void;
     /** CBOR for a crypto-account UR: the account's sh(wpkh()), wpkh(), tr() and BIP48 keys. Hand it to
      *  parser.wasm's parser_ur_encode_cbor(1, ...) */
@@ -299,6 +308,7 @@ export type SignerExports = {
     signer_message_sign: () => number;
     signer_multisig_output: () => number;
     signer_multisig_load: (len: number) => number;
+    signer_multisig_load_cbor: (len: number) => number;
     signer_multisig_unload: () => void;
     signer_cbor_output: () => number;
     signer_account_cbor: (account: number) => number;

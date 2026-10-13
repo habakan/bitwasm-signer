@@ -59,6 +59,7 @@ const L = {
  *   signer_message_sign: () => number,
  *   signer_multisig_output: () => number,
  *   signer_multisig_load: (len: number) => number,
+ *   signer_multisig_load_cbor: (len: number) => number,
  *   signer_multisig_unload: () => void,
  *   signer_cbor_output: () => number,
  *   signer_account_cbor: (account: number) => number,
@@ -514,11 +515,22 @@ export class Signer {
   /** @param {string | Uint8Array} text */
   multisigLoad(text) {
     const bytes = typeof text === "string" ? new TextEncoder().encode(text) : text;
+    return this.#multisigLoad(bytes, false);
+  }
+
+  /** Registers a BIP48 sortedmulti wallet from its typed crypto-output CBOR. */
+  /** @param {Uint8Array} cbor */
+  multisigLoadCbor(cbor) {
+    return this.#multisigLoad(cbor, true);
+  }
+
+  /** @param {Uint8Array} bytes @param {boolean} cbor */
+  #multisigLoad(bytes, cbor) {
     const cap = this.#e.signer_input_cap();
     if (bytes.length > cap) throw new RangeError(`a multisig setup of ${bytes.length} bytes, cap is ${cap}`);
     this.#mem.set(bytes, this.#e.signer_input());
-    const rc = this.#e.signer_multisig_load(bytes.length);
-    if (rc !== 0) throw new SignerError("multisigLoad", rc);
+    const rc = cbor ? this.#e.signer_multisig_load_cbor(bytes.length) : this.#e.signer_multisig_load(bytes.length);
+    if (rc !== 0) throw new SignerError(cbor ? "multisigLoadCbor" : "multisigLoad", rc);
     const at = this.#e.signer_multisig_output(), m = L.multisig;
     const v = this.#view(at, m.size);
     const read = (/** @type {number} */ off, /** @type {number} */ cap) => {

@@ -184,10 +184,8 @@ pub extern "C" fn parser_ur_reset() {
     }
 }
 
-/// Called after the host writes one QR payload to `parser_input()`. Returns the PSBT's length once
-/// the UR is complete — with the PSBT now at the start of the input buffer, ready for
-/// `parser_parse` — 0 while more parts are needed, or a negative error for a rejected part, which
-/// leaves the parts received so far untouched.
+/// Called after the host writes one QR payload to `parser_input()`. Returns the completed payload
+/// length with PSBT, bytes, or crypto-output CBOR at the start of the input buffer, or 0 while incomplete.
 #[no_mangle]
 pub extern "C" fn parser_ur_receive(len: u32) -> i32 {
     // the part overwrites the parsed PSBT that finalize would splice into
@@ -209,11 +207,19 @@ pub extern "C" fn parser_ur_receive(len: u32) -> i32 {
         Ok(0) => return 0,
         Ok(n) => n as usize,
     };
-    // Complete: it has to be a PSBT or bytes, and it has to be a CBOR byte string
+    // A crypto-output is a CBOR expression; PSBTs and bytes carry a CBOR byte string
     let ty = &d.ur_type;
     let is_bytes = ty.starts_with(b"bytes\0");
-    unsafe {
-        UR_KIND = is_bytes as u32;
+    let is_output = ty.starts_with(b"crypto-output\0");
+    if is_output {
+        if n > PSBT_MAX {
+            return ur::Err::Limit as i32;
+        }
+        let msg: &[u8] = unsafe { core::slice::from_raw_parts(d.message(), n) };
+        let dst = unsafe { core::slice::from_raw_parts_mut((&raw mut PSBT_IN) as *mut u8, n) };
+        dst.copy_from_slice(msg);
+        unsafe { UR_KIND = 2; }
+        return n as i32;
     }
     if !is_bytes && !ty.starts_with(b"crypto-psbt\0") && !ty.starts_with(b"psbt\0") {
         return ur::Err::Type as i32;
@@ -232,11 +238,12 @@ pub extern "C" fn parser_ur_receive(len: u32) -> i32 {
         let src = core::slice::from_raw_parts(d.message().add(at), psbt_len);
         let dst = core::slice::from_raw_parts_mut((&raw mut PSBT_IN) as *mut u8, psbt_len);
         dst.copy_from_slice(src);
+        UR_KIND = is_bytes as u32;
     }
     psbt_len as i32
 }
 
-/// What the last complete UR was: 0 a PSBT, 1 bytes (a BSMS record or a descriptor, as text).
+/// What the last complete UR was: 0 PSBT, 1 bytes, 2 crypto-output CBOR.
 #[no_mangle]
 pub extern "C" fn parser_ur_kind() -> u32 {
     unsafe { UR_KIND }
