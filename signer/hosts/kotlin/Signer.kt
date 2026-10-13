@@ -85,15 +85,13 @@ class AccountKey(val xpub: String, val descriptor: String)
 class Multisig(val threshold: Int, val ours: Int, val fingerprints: List<String>, val receive: String, val descriptor: String)
 data class AddressPath(val chain: Int, val index: Int)
 
-class Signer(signerWasm: ByteArray, sha256: String? = null) {
+class Signer(signerWasm: ByteArray, sha256: String) {
     init {
         // A module that will hold a key is the last place to accept whatever bytes arrived
-        if (sha256 != null) {
-            val got = java.security.MessageDigest.getInstance("SHA-256").digest(signerWasm)
-                .joinToString("") { "%02x".format(it) }
-            require(got == sha256.lowercase()) {
-                "signer.wasm is not the expected build: $got != ${sha256.lowercase()}"
-            }
+        val got = java.security.MessageDigest.getInstance("SHA-256").digest(signerWasm)
+            .joinToString("") { "%02x".format(it) }
+        require(got == sha256.lowercase()) {
+            "signer.wasm is not the expected build: $got != ${sha256.lowercase()}"
         }
     }
 

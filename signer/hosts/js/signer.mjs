@@ -124,18 +124,17 @@ export class Signer {
     this.#e = /** @type {SignerExports} */ (/** @type {any} */ (instance.exports));
   }
 
-  /** `sha256` refuses any module that is not the build you expected. For a module that will hold a
-   *  key, pinning it is the difference between running your signer and running someone else's. */
+  /** `sha256` is required and refuses any module that is not the build you expected. For a module
+   *  that will hold a key, pinning it is the difference between running your signer and someone else's. */
   /**
    * @param {BufferSource} signerWasm
-   * @param {{ sha256?: string }} [opts]
+   * @param {{ sha256: string }} opts
    */
-  static async load(signerWasm, opts = {}) {
-    if (opts.sha256) {
-      const got = await sha256Hex(signerWasm);
-      if (got !== opts.sha256.toLowerCase()) {
-        throw new Error(`not the expected build: sha256 ${got}`);
-      }
+  static async load(signerWasm, opts) {
+    if (typeof opts?.sha256 !== "string") throw new TypeError("Signer.load requires opts.sha256");
+    const got = await sha256Hex(signerWasm);
+    if (got !== opts.sha256.toLowerCase()) {
+      throw new Error(`not the expected build: sha256 ${got}`);
     }
     const module = await WebAssembly.compile(signerWasm);
     const imports = WebAssembly.Module.imports(module);

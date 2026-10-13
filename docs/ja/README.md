@@ -36,7 +36,7 @@ XCFramework も不要です。JavaScript のライブラリは素の `.mjs` で�
 （TypeScript 用の `.d.mts` も隣にあります）。
 
 JavaScript、Kotlin、Swift のホストライブラリは、モジュールが返すオフセットを範囲検査し、
-モジュールの SHA-256 を固定できます。設定したハッシュと異なるビルドは実行前に拒否できます。
+モジュールの SHA-256 を固定できます。signer のライブラリではハッシュの指定が必須で、異なるビルドは実行前に拒否します。
 
 設計理由は [docs/rationale.md](rationale.md)、リポジトリの構成は [ARCHITECTURE.md](ARCHITECTURE.md) にあります。
 

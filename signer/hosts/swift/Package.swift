@@ -26,7 +26,8 @@ let package = Package(
             ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
-        .executableTarget(name: "SignerCheck", dependencies: ["WasmSigner"],
+        .executableTarget(name: "SignerCheck",
+                          dependencies: ["WasmSigner", .product(name: "Crypto", package: "swift-crypto")],
                           swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

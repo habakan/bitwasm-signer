@@ -8,6 +8,7 @@ import java.io.File
 
 fun main(args: Array<String>) {
     val signerWasm = File(args[0]).readBytes()
+    val pin = java.security.MessageDigest.getInstance("SHA-256").digest(signerWasm).joinToString("") { "%02x".format(it) }
     val parserWasm = File(args[1]).readBytes()
     val psbt = File(args[2]).readBytes()
 
@@ -24,7 +25,7 @@ fun main(args: Array<String>) {
         if (len == 0) null else mem.readBytes(inputAt + call("parser_prevtx_off", i.toLong()), len)
     }
 
-    val s = Signer(signerWasm).init()
+    val s = Signer(signerWasm, pin).init()
     s.seedFromMnemonic(("abandon ".repeat(11) + "about").toCharArray())
     s.setPlan(plan).setPrevTxs(prev)
     s.review()

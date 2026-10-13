@@ -44,6 +44,7 @@ private class PlanSource(parserWasm: ByteArray) {
 
 fun main(args: Array<String>) {
     val signerWasm = File(args[0]).readBytes()
+    val pin = java.security.MessageDigest.getInstance("SHA-256").digest(signerWasm).joinToString("") { "%02x".format(it) }
     val parserWasm = File(args[1]).readBytes()
     val psbt = File(args[2]).readBytes()
     val nativelySigned = File(args[3]).readBytes()
@@ -58,7 +59,7 @@ fun main(args: Array<String>) {
         ok("a wrong sha256 is refused", e.message!!.contains("not the expected build"))
     }
 
-    val s = Signer(signerWasm)
+    val s = Signer(signerWasm, pin)
     s.init()
     check("fingerprint before a seed", s.fingerprint, "00000000")
     val mn = mnemonic.copyOf()
@@ -169,7 +170,7 @@ fun main(args: Array<String>) {
 
     // --- signing without a review is refused by this library, and by the module
     run {
-        val s2 = Signer(signerWasm).init().seedFromMnemonic(mnemonic.copyOf()).setPlan(plan).setPrevTxs(prevTxs)
+        val s2 = Signer(signerWasm, pin).init().seedFromMnemonic(mnemonic.copyOf()).setPlan(plan).setPrevTxs(prevTxs)
         try {
             s2.sign()
             ok("signing without review is refused", false)
@@ -189,7 +190,7 @@ fun main(args: Array<String>) {
 
     // --- prevtxs that overflow the module's buffer are refused before they are written
     run {
-        val s3 = Signer(signerWasm).init().seedFromMnemonic(mnemonic.copyOf()).setPlan(plan)
+        val s3 = Signer(signerWasm, pin).init().seedFromMnemonic(mnemonic.copyOf()).setPlan(plan)
         try {
             s3.setPrevTxs(listOf(ByteArray(20000), ByteArray(20000)))
             ok("prevtxs over the buffer are refused", false)
@@ -211,7 +212,7 @@ fun main(args: Array<String>) {
 
     // --- making a new mnemonic, from entropy and from dice, against BIP39's and the dice vectors
     run {
-        val g = Signer(signerWasm).init()
+        val g = Signer(signerWasm, pin).init()
         val ent = "9e885d952ad362caeb4efe34a8e91bd2".chunked(2).map { it.toInt(16).toByte() }.toByteArray()
         val mn = g.mnemonicFromEntropy(ent)
         check("BIP39's 9e885d95... vector", String(mn), "ozone drill grab fiber curtain grace pudding thank cruise elder eight picnic")
@@ -242,7 +243,7 @@ fun main(args: Array<String>) {
 
     // --- making a SeedQR from the words, against the published vector 4, and reading it back
     run {
-        val q = Signer(signerWasm).init()
+        val q = Signer(signerWasm, pin).init()
         val words = "forum undo fragile fade shy sign arrest garment culture tube off merit".toCharArray()
         check("Standard SeedQR digits", String(q.seedQRFromMnemonic(words)), "073318950739065415961602009907670428187212261116")
         ok("the words passed in are zeroed", words.all { it == '\u0000' })
@@ -261,7 +262,7 @@ fun main(args: Array<String>) {
 
     // --- BIP85: the child the JavaScript host checks against its own derivation
     run {
-        val b = Signer(signerWasm).init().seedFromMnemonic(mnemonic.copyOf())
+        val b = Signer(signerWasm, pin).init().seedFromMnemonic(mnemonic.copyOf())
         check("BIP85 12 words, index 0", String(b.bip85Mnemonic(words = 12)), "prosper short ramp prepare exchange stove life snack client enough purpose fold")
         try {
             b.bip85Mnemonic(words = 15)
@@ -281,11 +282,11 @@ fun main(args: Array<String>) {
     // --- what a keyboard adds loads the same wallet; a bad checksum, or a word not in the list, loads nothing
     val typed = "abandon ".repeat(11) + "about"
     check("whitespace and capitals load the same wallet",
-          Signer(signerWasm).init().seedFromMnemonic((" " + typed.replaceFirst(" ", "  ").uppercase() + "\n").toCharArray())
+          Signer(signerWasm, pin).init().seedFromMnemonic((" " + typed.replaceFirst(" ", "  ").uppercase() + "\n").toCharArray())
               .fingerprint, "73c5da0a")
     for ((what, bad) in listOf("a bad checksum" to "abandon ".repeat(11) + "abandon",
                                "a word not in the list" to typed.replace("about", "abaut"))) {
-        val b = Signer(signerWasm).init()
+        val b = Signer(signerWasm, pin).init()
         try {
             b.seedFromMnemonic(bad.toCharArray())
             ok("a mnemonic with $what is refused", false)
@@ -299,7 +300,7 @@ fun main(args: Array<String>) {
         val words = "forum undo fragile fade shy sign arrest garment culture tube off merit"
         val digits = "073318950739065415961602009907670428187212261116"
         val compact = "5bbd9d71a8ec7990831aff359d426545".chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-        val q = Signer(signerWasm)
+        val q = Signer(signerWasm, pin)
         val want = q.init().seedFromMnemonic(words.toCharArray()).fingerprint
         val wantPass = q.init().seedFromMnemonic(words.toCharArray(), "TREZOR".toCharArray()).fingerprint
         val qr = digits.toByteArray()
@@ -329,7 +330,7 @@ fun main(args: Array<String>) {
 
     // --- a registered 2 of 3: Core's receive address, and the CBOR that urtypes reads back
     run {
-        val m = Signer(signerWasm).init()
+        val m = Signer(signerWasm, pin).init()
         m.seedFromMnemonic(("abandon ".repeat(11) + "about").toCharArray())
         check("crypto-account CBOR", m.accountCbor().joinToString("") { "%02x".format(it) }, "a2011a73c5da0a0284d90134d90190d90194d9012fa403582102f1f347891b20f7568eae3ec9869fbfb67bcab6f358326f10ecc42356bd55939d0458206eaae365ae0e0a0aab84325cfe7cd76c3b909035f889e7d3f1b847a9a0797ecb06d90130a201861831f500f500f5021a73c5da0a081a3d05ff75d90134d90194d9012fa403582102707a62fdacc26ea9b63b1c197906f56ee0180d0bcf1966e1a2da34f5f3a09a9b0458204a53a0ab21b9dc95869c4e92a161194e03c0ef3ff5014ac692f433c4765490fc06d90130a201861854f500f500f5021a73c5da0a081a7ef32bdbd90134d90199d9012fa403582103418278a2885c8bb98148158d1474634097a179c642f23cf1cc04da629ac6f0fb045820c61a8f27e98182314d2444da3e600eb5836ec8ad183c86c311f95df8082b18aa06d90130a201861856f500f500f5021a73c5da0a081a035270dad90134d90191d9019ad9012fa4035821021a3bf5fbf737d0f36993fd46dc4913093beb532d654fe0dfd98bd27585dc9f29045820bba0c7ca160a870efeb940ab90d0f4284fea1b5e0d2117677e823fc37e2d576306d90130a201881830f500f500f502f5021a73c5da0a081a1cf29716")
         val k = { fp: String, x: String -> "[$fp/48h/0h/0h/2h]$x/<0;1>/*" }
