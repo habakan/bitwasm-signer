@@ -1,7 +1,7 @@
 # signer.wasm from Python
 
 A host for `signer.wasm` and `parser.wasm` on [WAMR](https://github.com/bytecodealliance/wasm-micro-runtime)'s
-classic interpreter, the one jitsu-in-pico runs. The bindings are plain `ctypes`: the only native piece is
+classic interpreter, the one bitwasm-signer-pico runs. The bindings are plain `ctypes`: the only native piece is
 `libiwasm`, so a Linux image such as SeedSigner OS needs that one shared library and nothing compiled
 against Python.
 
@@ -19,12 +19,12 @@ make check-python   # dump.py on WAMR must print exactly what dump.mjs prints on
 python3 signer/hosts/python/bench.py build/signer.wasm build/parser.wasm parser/build/vectors/own_mixed_nwu.psbt
 ```
 
-`JITSU_IN_LIBIWASM` points at `libiwasm.so` (or `.dylib`) when it is not on the loader's path.
+`BITWASM_SIGNER_LIBIWASM` points at `libiwasm.so` (or `.dylib`) when it is not on the loader's path.
 
 ## Using it
 
 ```python
-from jitsu_in import Signer
+from bitwasm_signer import Signer
 
 signer = Signer(signer_wasm, sha256="…").init(testnet=False)
 try:

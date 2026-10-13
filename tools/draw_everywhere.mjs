@@ -21,7 +21,7 @@ const PLATFORMS = [
 ];
 
 const MODULES = [["parser.wasm", "15,854 B"], ["signer.wasm", "82,117 B"]];
-const NAME = "jitsu-in";
+const NAME = "bitwasm-signer";
 
 // Brand logos are trademarked, so each platform gets a shape that says what kind it is
 function icon(kind, x, y, size, color) {

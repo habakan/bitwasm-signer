@@ -10,7 +10,7 @@ from ctypes import POINTER, c_bool, c_char_p, c_int32, c_uint8, c_uint32, c_uint
 
 
 def _load(path=None):
-    path = path or os.environ.get("JITSU_IN_LIBIWASM") or "libiwasm" + (".dylib" if os.uname().sysname == "Darwin" else ".so")
+    path = path or os.environ.get("BITWASM_SIGNER_LIBIWASM") or "libiwasm" + (".dylib" if os.uname().sysname == "Darwin" else ".so")
     lib = ctypes.CDLL(path)
     for name, res, args in [
         ("wasm_runtime_init", c_bool, []),

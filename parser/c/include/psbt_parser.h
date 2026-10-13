@@ -34,8 +34,8 @@ plan_sig_t *parser_sigs(void);
 /* Inserts the n signatures written to parser_sigs() and returns the signed PSBT length, or -P_ERR_SIG */
 int parser_finalize(unsigned int n);
 /* Anti-exfil, 16 x 33 bytes each. nonces: per input, 1 then the coordinator's n from the proprietary field
- * {0xfc, 8, "jitsu-in", 1}, for signer_nonces(). points: the host writes signer_nonce_points() here before
- * parser_finalize(), which adds each non-zero Q as {0xfc, 8, "jitsu-in", 2, pubkey}, the x-only key for P2TR */
+ * {0xfc, 7, "bitwasm", 1}, for signer_nonces(). points: the host writes signer_nonce_points() here before
+ * parser_finalize(), which adds each non-zero Q as {0xfc, 7, "bitwasm", 2, pubkey}, the x-only key for P2TR */
 unsigned char *parser_nonces(void);
 unsigned char *parser_nonce_points(void);
 unsigned char *parser_output(void);

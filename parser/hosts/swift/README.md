@@ -34,7 +34,7 @@ for out in plan.outputs {
 Add it to your own package:
 
 ```swift
-.package(path: "../jitsu-in/hosts/swift")   // or a URL once this is tagged
+.package(path: "../bitwasm-signer/hosts/swift")   // or a URL once this is tagged
 ```
 
 ## What you get

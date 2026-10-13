@@ -1,8 +1,8 @@
-<h1>jitsu-in</h1>
+<h1>bitwasm-signer</h1>
 
 <sup>[English](../../README.md)</sup>
 
-jitsu-in は Bitcoin の署名に使う処理を WebAssembly モジュールとして提供します。
+bitwasm-signer は Bitcoin の署名に使う処理を WebAssembly モジュールとして提供します。
 `parser.wasm` は未信頼の PSBT を読み、固定レイアウトの plan を作ります。`signer.wasm` は plan を検証し、
 レビュー用の取引情報を作り、取引に署名します。parser は鍵を持たず、signer は PSBT を読みません。
 
@@ -10,7 +10,7 @@ jitsu-in は Bitcoin の署名に使う処理を WebAssembly モジュールと�
 > 十分注意してください。扱える範囲は[対応範囲](#対応範囲)、署名側の制約は
 > [signer/docs/abi.md](../../signer/docs/abi.md) にあります。
 
-<img src="../everywhere.svg" alt="同じバイト列がどこでも動く。中央が jitsu-in、周囲が実際に動かした6箇所" width="940">
+<img src="../everywhere.svg" alt="同じバイト列がどこでも動く。中央が bitwasm-signer、周囲が実際に動かした6箇所" width="940">
 
 実行した環境と、各環境で確認した範囲は [docs/everywhere.md](../everywhere.md) に記載しています。
 

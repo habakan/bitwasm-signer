@@ -400,7 +400,7 @@ static int exfil_r(const secp256k1_context *ctx, const uint8_t q33[33], const ui
     secp256k1_pubkey q, tg, r;
     const secp256k1_pubkey *both[2] = {&q, &tg};
     memcpy(buf, q33, 33), memcpy(buf + 33, m, 32), memcpy(buf + 65, n, 32);
-    if (!secp256k1_tagged_sha256(ctx, t, (const uint8_t *)"jitsu-in/anti-exfil/t", 21, buf, 97) ||
+    if (!secp256k1_tagged_sha256(ctx, t, (const uint8_t *)"bitwasm/anti-exfil/t", 20, buf, 97) ||
         !secp256k1_ec_pubkey_parse(ctx, &q, q33, 33) || !secp256k1_ec_pubkey_create(ctx, &tg, t) ||
         !secp256k1_ec_pubkey_combine(ctx, &r, both, 2) ||
         !secp256k1_ec_pubkey_serialize(ctx, ser, &len, &r, SECP256K1_EC_COMPRESSED))

@@ -1,8 +1,8 @@
-<h1>jitsu-in</h1>
+<h1>bitwasm-signer</h1>
 
 <sup>[日本語](docs/ja/README.md)</sup>
 
-**jitsu-in provides WebAssembly modules for Bitcoin transaction signing.** `parser.wasm` reads
+**bitwasm-signer provides WebAssembly modules for Bitcoin transaction signing.** `parser.wasm` reads
 an untrusted PSBT and builds a fixed-layout plan. `signer.wasm` checks that plan, prepares transaction
 details for review, and signs the transaction. The parser has no keys; the signer does not read the PSBT.
 
@@ -10,16 +10,15 @@ details for review, and signs the transaction. The parser has no keys; the signe
 > it handles is in [Scope](#scope); the signer's own limits are in
 > [signer/docs/abi.md](signer/docs/abi.md).
 
-<sub>**jitsu-in** — 実印, the registered seal that makes a signature binding in Japan, not the 認印
-you keep in a drawer. The two modules are the two halves of using one: 照合, checking the document
-against what it claims to be, and 実印 itself, the mark that commits you.</sub>
+<sub>**bitwasm-signer** — Bitcoin, WebAssembly, signer: one signer built once to WebAssembly, the same
+bytes on every runtime.</sub>
 
 | | bytes | imports | what it does |
 |---|---:|---:|---|
 | [`parser.wasm`](parser/README.md) | 15,854 | **0** | animated QR (UR) reassembly, PSBT v0 parsing, building a fixed-layout plan, taking signatures back, UR encoding |
 | [`signer.wasm`](signer/docs/abi.md) | 82,117 | **0** | keys, new mnemonics, SeedQR in and out, BIP85 children, BIP32 derivation, re-checking that plan, building what to display, sighash, signing, BIP137 messages, xpub export, finding our addresses |
 
-<img src="docs/everywhere.svg" alt="The same bytes run everywhere: jitsu-in at the centre, six places it has been run" width="940">
+<img src="docs/everywhere.svg" alt="The same bytes run everywhere: bitwasm-signer at the centre, six places it has been run" width="940">
 
 The tested runtimes and the limits of those tests are in [docs/everywhere.md](docs/everywhere.md).
 

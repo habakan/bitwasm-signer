@@ -270,7 +270,7 @@ for an input (`signer_nonces()`), the nonce is instead
 q = H_q(x || m || n),  Q = qG,  k = q + H_t(Q || m || n)
 ```
 
-with `H_q` and `H_t` the BIP340 tagged hashes `jitsu-in/anti-exfil/q` and `/t`, `x` the signing key (the
+with `H_q` and `H_t` the BIP340 tagged hashes `bitwasm/anti-exfil/q` and `/t`, `x` the signing key (the
 tweaked one for P2TR) and `m` the sighash. The signature comes with `Q`, and the coordinator checks that R's x
 is that of `Q + H_t(Q || m || n)G` ([Delving Bitcoin](https://delvingbitcoin.org/t/non-interactive-anti-exfil-airgap-compatible/1081)).
 A signer can still grind `q` to leak a few bits per signature, so this narrows the channel rather than
@@ -284,4 +284,4 @@ P2WPKH (BIP84), P2SH-P2WPKH (BIP49), P2TR key path (BIP86) and P2WSH multisig of
 wallet; without one it is shown as an external output and counted in `spend`. No taproot multisig, no script trees,
 no legacy P2PKH
 signing. The full list is in
-jitsu-in-pico's `docs/limitations.md`.
+bitwasm-signer-pico's `docs/limitations.md`.
