@@ -12,8 +12,8 @@ sha256sum -c SHA256SUMS
 gpg --verify SHA256SUMS.asc SHA256SUMS
 
 # 3. the file was built by this repository's workflow, from a known commit
-gh attestation verify parser.wasm --repo habakan/jitsu-in
-gh attestation verify signer.wasm --repo habakan/jitsu-in
+gh attestation verify parser.wasm --repo habakan/bitwasm-signer
+gh attestation verify signer.wasm --repo habakan/bitwasm-signer
 ```
 
 The maintainer's public key is at https://github.com/habakan.gpg, fingerprint

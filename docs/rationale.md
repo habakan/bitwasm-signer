@@ -23,7 +23,7 @@ sign what it displayed, but it cannot display one transaction and sign another.
 Bitcoin lets users verify the rules and transactions for themselves. Signing software is harder to
 inspect: it handles the keys and decides what to sign, and few users can review all of its code.
 
-**jitsu-in aims to make a signer easier to verify in two ways.**
+**bitwasm-signer aims to make a signer easier to verify in two ways.**
 
 **No host imports; pinned build tools.** Both modules have zero imports. The build uses no package
 manager, and the toolchain is pinned by version and hash. `parser.wasm` is 15,632 bytes, built from

@@ -8,8 +8,8 @@ import base64
 import sys
 from pathlib import Path
 
-from jitsu_in import Instance, Signer, SignerError
-from jitsu_in.signer import MAX_INPUTS, NONCE_SIZE, OWNER, PLAN_N_INPUTS, PLAN_SIZE, TEXT_KIND
+from bitwasm_signer import Instance, Signer, SignerError
+from bitwasm_signer.signer import MAX_INPUTS, NONCE_SIZE, OWNER, PLAN_N_INPUTS, PLAN_SIZE, TEXT_KIND
 
 signer_path, parser_path, psbt_path = sys.argv[1:4]
 MNEMONIC = "abandon " * 11 + "about"

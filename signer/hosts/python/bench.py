@@ -1,4 +1,4 @@
-"""Times each stage on this machine, for comparing a Pi Zero against jitsu-in-pico's figures.
+"""Times each stage on this machine, for comparing a Pi Zero against bitwasm-signer-pico's figures.
 
   python3 bench.py <signer.wasm> <parser.wasm> <psbt>
 """
@@ -7,8 +7,8 @@ import sys
 import time
 from pathlib import Path
 
-from jitsu_in import Instance, Signer
-from jitsu_in.signer import PLAN_N_INPUTS, PLAN_SIZE
+from bitwasm_signer import Instance, Signer
+from bitwasm_signer.signer import PLAN_N_INPUTS, PLAN_SIZE
 
 
 def stage(name, f):

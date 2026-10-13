@@ -5,7 +5,7 @@
 **Please do not report security vulnerabilities through public GitHub issues.**
 
 Use GitHub's private vulnerability reporting on this repository
-([Security → Report a vulnerability](https://github.com/habakan/jitsu-in/security/advisories/new)).
+([Security → Report a vulnerability](https://github.com/habakan/bitwasm-signer/security/advisories/new)).
 
 The maintainer's public key, which signs releases: https://github.com/habakan.gpg
 

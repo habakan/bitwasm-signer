@@ -139,7 +139,7 @@ def main():
             bad.append(f"Signer.swift: {name} is {m.group(1)}, C says {want}")
 
     # The Python host library's constants, the same names as Kotlin's
-    py = Path("signer/hosts/python/jitsu_in/signer.py").read_text()
+    py = Path("signer/hosts/python/bitwasm_signer/signer.py").read_text()
     for name, want in want_kt.items():
         m = re.search(r"^" + name + r" = (\d+)", py, re.M)
         if not m:

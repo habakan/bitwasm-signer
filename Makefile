@@ -84,7 +84,7 @@ check-wamr: build/parser.wasm build/signer.wasm build/wamr.node
 check-python: build/parser.wasm build/signer.wasm $(WAMR_BUILD)/libiwasm.$(WAMR_LIB_EXT)
 	$(MAKE) -C parser build/vectors/own_p2wpkh_1in.psbt
 	node signer/hosts/js/dump.mjs build/signer.wasm build/parser.wasm $(PSBT_VECTOR) > build/host-v8.out
-	JITSU_IN_LIBIWASM=$(abspath $(WAMR_BUILD))/libiwasm.$(WAMR_LIB_EXT) \
+	BITWASM_SIGNER_LIBIWASM=$(abspath $(WAMR_BUILD))/libiwasm.$(WAMR_LIB_EXT) \
 	  python3 signer/hosts/python/dump.py build/signer.wasm build/parser.wasm $(PSBT_VECTOR) > build/host-python.out
 	diff build/host-v8.out build/host-python.out && echo "JavaScript on V8 and Python on WAMR agree"
 .PHONY: check-python
@@ -247,7 +247,7 @@ check-core-diff: build/parser.wasm build/signer.wasm parser/build/vectors/own_p2
 # until the port is complete: a port checked only against its own tests is a port whose bugs become
 # its tests. See parser/rust/README.md for what has moved across so far.
 RUST_TOOLCHAIN := 1.95.0
-RUST_WASM := parser/rust/target/wasm32-unknown-unknown/release/jitsu_in_parser.wasm
+RUST_WASM := parser/rust/target/wasm32-unknown-unknown/release/bitwasm_signer_parser.wasm
 
 $(RUST_WASM): $(wildcard parser/rust/src/*.rs parser/rust/src/*/*.rs) parser/rust/Cargo.toml
 	cd parser/rust && rustup run $(RUST_TOOLCHAIN) cargo build --release --target wasm32-unknown-unknown

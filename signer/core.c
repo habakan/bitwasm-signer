@@ -378,11 +378,11 @@ static int exfil_nonce(uint8_t k[32], const uint8_t m[32], const uint8_t x[32], 
     size_t len = 33;
     int ok;
     memcpy(buf, x, 32), memcpy(buf + 32, m, 32), memcpy(buf + 64, e->n, 32);
-    ok = secp256k1_tagged_sha256(ctx, k, (const uint8_t *)"jitsu-in/anti-exfil/q", 21, buf, 96) &&
+    ok = secp256k1_tagged_sha256(ctx, k, (const uint8_t *)"bitwasm/anti-exfil/q", 20, buf, 96) &&
          secp256k1_ec_pubkey_create(ctx, &q, k) &&
          secp256k1_ec_pubkey_serialize(ctx, e->point, &len, &q, SECP256K1_EC_COMPRESSED);
     memcpy(buf, e->point, 33), memcpy(buf + 33, m, 32), memcpy(buf + 65, e->n, 32);
-    ok = ok && secp256k1_tagged_sha256(ctx, t, (const uint8_t *)"jitsu-in/anti-exfil/t", 21, buf, 97) &&
+    ok = ok && secp256k1_tagged_sha256(ctx, t, (const uint8_t *)"bitwasm/anti-exfil/t", 20, buf, 97) &&
          secp256k1_ec_seckey_tweak_add(ctx, k, t);
     wipe(buf, sizeof(buf));
     return ok;

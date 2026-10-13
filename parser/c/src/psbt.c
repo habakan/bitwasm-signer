@@ -20,7 +20,7 @@ static size_t in_len;
 static plan_t plan;
 static plan_sig_t sigs[PLAN_MAX_INPUTS];
 static uint8_t nonces[PLAN_MAX_INPUTS][33], points[PLAN_MAX_INPUTS][33];
-static const uint8_t exfil_key[10] = {0xfc, 8, 'j', 'i', 't', 's', 'u', '-', 'i', 'n'};
+static const uint8_t exfil_key[9] = {0xfc, 7, 'b', 'i', 't', 'w', 'a', 's', 'm'};
 static uint32_t prevtx_off[PLAN_MAX_INPUTS], prevtx_len[PLAN_MAX_INPUTS];
 static size_t in_map_end[PLAN_MAX_INPUTS];
 static int parsed;
@@ -257,7 +257,8 @@ static int parse_input(rd_t *r, unsigned int idx, uint32_t fp) {
             has_merkle = 1;
             break;
         case 0xfc:
-            if (e->klen == 11 && !memcmp(e->key, exfil_key, 10) && e->key[10] == 1) {
+            if (e->klen == sizeof(exfil_key) + 1 && !memcmp(e->key, exfil_key, sizeof(exfil_key)) &&
+                e->key[sizeof(exfil_key)] == 1) {
                 if (e->vlen != 32) return P_ERR_FORMAT;
                 nonces[idx][0] = 1;
                 memcpy(nonces[idx] + 1, e->val, 32);
@@ -313,8 +314,8 @@ static int parse_input(rd_t *r, unsigned int idx, uint32_t fp) {
     for (size_t i = 0; c && !finalized && i < n; i++) {
         const uint8_t *own = c == &tap ? in->spk.bytes + 2 : bip32.pubkey; /* P2TR signs with the output key */
         const size_t own_len = c == &tap ? 32 : 33;
-        if (kv[i].klen == 11 + own_len && !memcmp(kv[i].key, exfil_key, 10) && kv[i].key[10] == 2 &&
-            !memcmp(kv[i].key + 11, own, own_len))
+        if (kv[i].klen == sizeof(exfil_key) + 1 + own_len && !memcmp(kv[i].key, exfil_key, sizeof(exfil_key)) &&
+            kv[i].key[sizeof(exfil_key)] == 2 && !memcmp(kv[i].key + sizeof(exfil_key) + 1, own, own_len))
             return P_ERR_DUPLICATE;
     }
     if (c && !finalized) {
@@ -474,8 +475,8 @@ int EXPORT(parser_finalize)(unsigned int n) {
         memcpy(out_buf + o, s->sig, s->sig_len), o += s->sig_len;
         if (memcmp(points[by_input[i]], (const uint8_t[33]){0}, 33)) {
             const int p2tr = is_p2tr(&plan.inputs[i].spk);
-            out_buf[o++] = (uint8_t)(11 + 33 - p2tr);
-            memcpy(out_buf + o, exfil_key, 10), o += 10;
+            out_buf[o++] = (uint8_t)(sizeof(exfil_key) + 1 + 33 - p2tr);
+            memcpy(out_buf + o, exfil_key, sizeof(exfil_key)), o += sizeof(exfil_key);
             out_buf[o++] = 2;
             memcpy(out_buf + o, s->pubkey + p2tr, 33u - p2tr), o += 33u - p2tr;
             out_buf[o++] = 33;

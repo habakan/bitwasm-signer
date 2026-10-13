@@ -52,16 +52,16 @@ carrying this fingerprint become key candidates in the plan.
 
 ## Anti-exfil fields
 
-Two proprietary input fields (BIP174 `0xfc`, identifier `jitsu-in`) carry
+Two proprietary input fields (BIP174 `0xfc`, identifier `bitwasm`) carry
 [non-interactive anti-exfil](https://delvingbitcoin.org/t/non-interactive-anti-exfil-airgap-compatible/1081):
 
 | key | value | written by |
 |---|---|---|
-| `fc 08 "jitsu-in" 01` | `n`, 32 random bytes | the coordinator, per input |
-| `fc 08 "jitsu-in" 02` + the signer's pubkey (33 bytes, x-only 32 for P2TR) | `Q`, 33 bytes compressed | `parser_finalize`, for each non-zero entry of `parser_nonce_points` |
+| `fc 07 "bitwasm" 01` | `n`, 32 random bytes | the coordinator, per input |
+| `fc 07 "bitwasm" 02` + the signer's pubkey (33 bytes, x-only 32 for P2TR) | `Q`, 33 bytes compressed | `parser_finalize`, for each non-zero entry of `parser_nonce_points` |
 
 The coordinator checks that the x of `Q + H(Q, m, n)G` is the signature's R, with `H` the BIP340 tagged hash
-`jitsu-in/anti-exfil/t` over `Q || m || n` and `m` the sighash. Other fields with the `jitsu-in` identifier are
+`bitwasm/anti-exfil/t` over `Q || m || n` and `m` the sighash. Other fields with the `bitwasm` identifier are
 ignored. An input that carries this signer's `Q` but not its signature is rejected with `P_ERR_DUPLICATE`, since
 signing it would write the same key twice.
 
