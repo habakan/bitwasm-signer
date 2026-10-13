@@ -21,14 +21,14 @@ export class SignerError extends Error {
     code: number;
 }
 export class Signer {
-    /** `sha256` refuses any module that is not the build you expected. For a module that will hold a
-     *  key, pinning it is the difference between running your signer and running someone else's. */
+    /** `sha256` is required and refuses any module that is not the build you expected. For a module
+     *  that will hold a key, pinning it is the difference between running your signer and someone else's. */
     /**
      * @param {BufferSource} signerWasm
-     * @param {{ sha256?: string }} [opts]
+     * @param {{ sha256: string }} opts
      */
-    static load(signerWasm: BufferSource, opts?: {
-        sha256?: string;
+    static load(signerWasm: BufferSource, opts: {
+        sha256: string;
     }): Promise<Signer>;
     static get LAYOUT(): {
         plan: {

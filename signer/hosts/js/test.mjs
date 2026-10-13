@@ -26,6 +26,7 @@ function ok(what, cond) {
 // parser.wasm turns the PSBT into a plan; signer.wasm is what we are testing
 const parserWasm = readFileSync(`${root}build/parser.wasm`);
 const signerWasm = readFileSync(`${root}build/signer.wasm`);
+const pin = { sha256: createHash("sha256").update(signerWasm).digest("hex") };
 const P = (await WebAssembly.instantiate(parserWasm, {})).instance.exports;
 
 function planFor(psbtPath, fingerprint) {
@@ -53,7 +54,7 @@ try {
   ok("a wrong sha256 is refused", /not the expected build/.test(e.message));
 }
 
-const S = await Signer.load(signerWasm);
+const S = await Signer.load(signerWasm, pin);
 S.init();
 check("fingerprint before a seed", S.fingerprint, "00000000");
 const mnBytes = new TextEncoder().encode(MNEMONIC);
@@ -202,7 +203,7 @@ for (const [what, opts] of [["BIP44", { purpose: 44 }], ["a hardened account", {
 
 // --- BIP49: P2SH-P2WPKH inputs and change, beside P2WPKH (Core signs the same PSBTs: check-core-diff)
 {
-  const P2 = await Signer.load(signerWasm);
+  const P2 = await Signer.load(signerWasm, pin);
   P2.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
   for (const name of ["own_p2sh_p2wpkh_1in", "own_mixed_p2sh_nwu"]) {
     const v = planFor(`${root}parser/build/vectors/${name}.psbt`, parseInt("73c5da0a", 16));
@@ -238,7 +239,7 @@ for (const [what, opts] of [["BIP44", { purpose: 44 }], ["a hardened account", {
 // --- BIP48 P2WSH multisig: signed only once the witness script is a multisig of at most three keys, hashes to
 // the input's script and holds our key. Core signs the same PSBTs byte for byte: check-core-diff
 {
-  const W = await Signer.load(signerWasm);
+  const W = await Signer.load(signerWasm, pin);
   W.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
   const FP = parseInt("73c5da0a", 16);
   const IN = (i) => 24 + 176 * i, WS = (i) => 5016 + 106 * i;
@@ -344,7 +345,7 @@ for (const [what, opts] of [["BIP44", { purpose: 44 }], ["a hardened account", {
 // --- a registered multisig: its change is change, an input of another wallet is refused, and the public keys go
 // out as CBOR that urtypes (Krux, Specter DIY) reads back as these descriptors
 {
-  const W = await Signer.load(signerWasm);
+  const W = await Signer.load(signerWasm, pin);
   W.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
   const FP = parseInt("73c5da0a", 16);
   const key = (fp, xpub) => `[${fp}/48h/0h/0h/2h]${xpub}/<0;1>/*`;
@@ -400,7 +401,7 @@ for (const [what, opts] of [["BIP44", { purpose: 44 }], ["a hardened account", {
 
 // --- BIP137 message signing, verified with Node's own ECDSA against BIP84's published m/84'/0'/0'/0/0 key
 {
-  const M = await Signer.load(signerWasm);
+  const M = await Signer.load(signerWasm, pin);
   M.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
   const enc = (t) => new TextEncoder().encode(t);
   const pub = ECDH.convertKey("0330d54fd0dd420a6e5f8d3624f5f3482cae350f79d5f0753bf5beef9c2d91af3c", "secp256k1", "hex", undefined, "uncompressed");
@@ -461,7 +462,7 @@ for (const [what, opts] of [["BIP44", { purpose: 44 }], ["a hardened account", {
 
 // --- the module refuses to sign a plan it was not shown
 {
-  const S2 = await Signer.load(signerWasm);
+  const S2 = await Signer.load(signerWasm, pin);
   S2.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC)).setPlan(plan).setPrevTxs(prevTxs);
   try {
     S2.sign();
@@ -496,7 +497,7 @@ for (const tamper of [false, true]) {
 
 // --- prevtxs that overflow the module's buffer are refused before they are written
 {
-  const S3 = await Signer.load(signerWasm);
+  const S3 = await Signer.load(signerWasm, pin);
   S3.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC)).setPlan(plan);
   try {
     S3.setPrevTxs([new Uint8Array(20000), new Uint8Array(20000)]);
@@ -511,7 +512,7 @@ for (const tamper of [false, true]) {
 
 // --- making a new mnemonic, from entropy and from dice, against BIP39's and the dice vectors
 {
-  const G = await Signer.load(signerWasm);
+  const G = await Signer.load(signerWasm, pin);
   G.init();
   const dec = (b) => new TextDecoder().decode(b);
   const ent = Uint8Array.from(Buffer.from("9e885d952ad362caeb4efe34a8e91bd2", "hex"));
@@ -570,7 +571,7 @@ for (const tamper of [false, true]) {
 
 // --- making a SeedQR from the words, against the published vector 4, and reading it back
 {
-  const Q = await Signer.load(signerWasm);
+  const Q = await Signer.load(signerWasm, pin);
   Q.init();
   const enc = (t) => new TextEncoder().encode(t);
   const words = enc("forum undo fragile fade shy sign arrest garment culture tube off merit");
@@ -614,7 +615,7 @@ for (const tamper of [false, true]) {
     }
     return Uint8Array.from(createHmac("sha512", "bip-entropy-from-k").update(k).digest().subarray(0, words * 4 / 3));
   };
-  const B = await Signer.load(signerWasm);
+  const B = await Signer.load(signerWasm, pin);
   B.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
   const dec = (b) => new TextDecoder().decode(b);
   for (const [words, index] of [[12, 0], [12, 1], [24, 0], [18, 7]]) {
@@ -651,12 +652,12 @@ for (const tamper of [false, true]) {
 // --- what a keyboard adds loads the same wallet; a mnemonic whose BIP39 checksum fails, or a word
 // that is not English BIP39, loads nothing
 for (const typed of [" " + MNEMONIC.replace(" ", "  ").toUpperCase() + "\n", "Abandon" + MNEMONIC.slice(7)]) {
-  const B = await Signer.load(signerWasm);
+  const B = await Signer.load(signerWasm, pin);
   check(`${JSON.stringify(typed.slice(0, 18))}... loads the same wallet`,
         B.init().seedFromMnemonic(new TextEncoder().encode(typed)).fingerprint, "73c5da0a");
 }
 for (const [what, bad] of [["a bad checksum", "abandon ".repeat(11) + "abandon"], ["a word not in the list", MNEMONIC.replace("about", "abaut")]]) {
-  const B = await Signer.load(signerWasm);
+  const B = await Signer.load(signerWasm, pin);
   try {
     B.init().seedFromMnemonic(new TextEncoder().encode(bad));
     ok(`a mnemonic with ${what} is refused`, false);
@@ -672,7 +673,7 @@ for (const [what, bad] of [["a bad checksum", "abandon ".repeat(11) + "abandon"]
   const digits = "073318950739065415961602009907670428187212261116";
   const compact = Buffer.from("5bbd9d71a8ec7990831aff359d426545", "hex");
   const enc = (t) => new TextEncoder().encode(t);
-  const Q = await Signer.load(signerWasm);
+  const Q = await Signer.load(signerWasm, pin);
   const fp = (pass) => Q.init().seedFromMnemonic(enc(words), enc(pass)).fingerprint;
   const want = fp(""), wantPass = fp("TREZOR");
   const qr = enc(digits);
@@ -824,7 +825,7 @@ check("fingerprint after unload", S.fingerprint, "00000000");
     const nonces = mem().slice(P.parser_nonces(), P.parser_nonces() + 16 * 33);
     ok(`${name}: n is read for input 0 only`, nonces[0] === 1 && hex(nonces.subarray(1, 33)) === hex(n) && nonces[33] === 0);
     const plan = mem().slice(P.parser_plan(), P.parser_plan() + PLAN_SIZE);
-    const X = await Signer.load(signerWasm);
+    const X = await Signer.load(signerWasm, pin);
     X.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
     X.setPlan(plan).review();
     const sv = X.sign(nonces);

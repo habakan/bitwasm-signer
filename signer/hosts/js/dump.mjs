@@ -4,6 +4,7 @@
 //
 //   node dump.mjs <signer.wasm> <parser.wasm> <psbt>
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { Signer } from "./signer.mjs";
 // WASM_RUNTIME=wamr runs both modules in WAMR's interpreter instead of V8
 if (process.env.WASM_RUNTIME === "wamr") globalThis.WebAssembly = (await import("../../../tools/wamr_webassembly.mjs")).default;
@@ -27,7 +28,8 @@ for (let i = 0; i < plan[Signer.LAYOUT.plan.nInputs]; i++) {
   prevTxs.push(len ? mem.slice(at, at + len) : null);
 }
 
-const S = await Signer.load(readFileSync(signerPath));
+const signerWasm = readFileSync(signerPath);
+const S = await Signer.load(signerWasm, { sha256: createHash("sha256").update(signerWasm).digest("hex") });
 S.init().seedFromMnemonic(new TextEncoder().encode("abandon ".repeat(11) + "about")).setPlan(plan).setPrevTxs(prevTxs);
 S.review();
 const d = S.display();

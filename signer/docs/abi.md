@@ -33,7 +33,7 @@ way it is not for `parser.wasm`.
 - **Call `signer_unload()` when you are finished**, not when you happen to remember. It zeroes the
   master key and everything derived from it
 - **Pin the module's hash.** A module that holds a key is the last place to accept whatever bytes
-  arrived. `Signer.load(wasm, { sha256 })` refuses anything else
+  arrived. The host libraries require it: `Signer.load(wasm, { sha256 })` refuses anything else
 - Nothing about this module stops a host reading its linear memory. On the device, that is why the
   debug probe has to be unplugged; in a browser, the page that loaded it can see the key. This module
   isolates the parser from the key, not the key from its host

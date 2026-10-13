@@ -5,6 +5,7 @@ hosts can be diffed byte for byte.
 """
 
 import base64
+import hashlib
 import sys
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from bitwasm_signer import Instance, Signer, SignerError
 from bitwasm_signer.signer import MAX_INPUTS, NONCE_SIZE, OWNER, PLAN_N_INPUTS, PLAN_SIZE, TEXT_KIND
 
 signer_path, parser_path, psbt_path = sys.argv[1:4]
+signer_wasm = Path(signer_path).read_bytes()
 MNEMONIC = "abandon " * 11 + "about"
 
 P = Instance(Path(parser_path).read_bytes())
@@ -25,7 +27,7 @@ for i in range(plan[PLAN_N_INPUTS]):
     n, at = P.parser_prevtx_len(i), P.parser_input() + P.parser_prevtx_off(i)
     prevtxs.append(bytes(P.memory[at:at + n]) if n else None)
 
-S = Signer(Path(signer_path).read_bytes())
+S = Signer(signer_wasm, hashlib.sha256(signer_wasm).hexdigest())
 S.init().seed_from_mnemonic(bytearray(MNEMONIC.encode())).set_plan(plan).set_prevtxs(prevtxs)
 review = S.review()
 d = S.display()

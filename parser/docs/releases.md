@@ -11,10 +11,14 @@ sha256sum -c SHA256SUMS
 # 2. the manifest was signed by the maintainer
 gpg --verify SHA256SUMS.asc SHA256SUMS
 
-# 3. the file was built by this repository's workflow, from a known commit
-gh attestation verify parser.wasm --repo habakan/bitwasm-signer
-gh attestation verify signer.wasm --repo habakan/bitwasm-signer
+# 3. the file was built by this repository's release workflow, from this tag
+ID=https://github.com/habakan/bitwasm-signer/.github/workflows/release.yml@refs/tags/v0.1.0
+gh attestation verify parser.wasm --repo habakan/bitwasm-signer --cert-identity "$ID" --deny-self-hosted-runners
+gh attestation verify signer.wasm --repo habakan/bitwasm-signer --cert-identity "$ID" --deny-self-hosted-runners
 ```
+
+`--repo` alone accepts an attestation from any workflow in the repository, on any branch.
+`--cert-identity` narrows it to the release workflow run for the tag you downloaded.
 
 The maintainer's public key is at https://github.com/habakan.gpg, fingerprint
 `8BD4 8DD6 70AF 9B34 7EA0  41CF 36D4 93A2 8A8B EB79`

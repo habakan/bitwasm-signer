@@ -110,8 +110,9 @@ if (!res.every((r) => r.success)) {
 
 // --- the committed xprv has to be the key signer.wasm actually derives, or this tests nothing
 const signerWasm = readFileSync(signerPath);
+const pin = { sha256: createHash("sha256").update(signerWasm).digest("hex") };
 {
-  const s = await Signer.load(signerWasm);
+  const s = await Signer.load(signerWasm, pin);
   s.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
   if (s.fingerprint !== FINGERPRINT) {
     console.error(`the committed fingerprint is ${FINGERPRINT}, signer.wasm derives ${s.fingerprint}`);
@@ -148,7 +149,7 @@ const signerWasm = readFileSync(signerPath);
   };
   const derive = (desc) =>
     cli("deriveaddresses", `${desc}#${JSON.parse(cli("getdescriptorinfo", desc)).checksum}`, "[0,4]");
-  const s = await Signer.load(signerWasm);
+  const s = await Signer.load(signerWasm, pin);
   s.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
   for (const a of ACCOUNTS) {
     const { xpub, descriptor } = s.xpub({ purpose: a.purpose });
@@ -206,7 +207,7 @@ const signerWasm = readFileSync(signerPath);
     }
     return b58check(Buffer.concat([Buffer.from([0xef]), k, Buffer.from([1])]));
   };
-  const s = await Signer.load(signerWasm);
+  const s = await Signer.load(signerWasm, pin);
   s.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC));
   let n = 0;
   for (const a of ACCOUNTS.filter((a) => a.purpose !== 86)) {
@@ -333,7 +334,7 @@ for (const path of psbtPaths.sort()) {
   // --- the signatures, and the fee, for the vectors that are ours to sign
   let sigNote = "";
   if (name.startsWith("own_")) {
-    const S = await Signer.load(signerWasm);
+    const S = await Signer.load(signerWasm, pin);
     try {
       S.init().seedFromMnemonic(new TextEncoder().encode(MNEMONIC)).setPlan(ours.plan).setPrevTxs(ours.prevTxs);
       const r = S.review();

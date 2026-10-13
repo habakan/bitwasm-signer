@@ -69,9 +69,9 @@ class SignerError(Exception):
 
 
 class Signer:
-    def __init__(self, wasm: bytes, sha256: str | None = None, lib_path=None):
-        """`sha256` refuses any module that is not the build you expected."""
-        if sha256 and hashlib.sha256(wasm).hexdigest() != sha256.lower():
+    def __init__(self, wasm: bytes, sha256: str, lib_path=None):
+        """`sha256` is required and refuses any module that is not the build you expected."""
+        if hashlib.sha256(wasm).hexdigest() != sha256.lower():
             raise ValueError(f"not the expected build: sha256 {hashlib.sha256(wasm).hexdigest()}")
         self._e = Instance(wasm, lib_path)
         self._m = self._e.memory

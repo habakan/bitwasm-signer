@@ -142,14 +142,12 @@ public final class Signer {
     private let memory: Memory
     private var reviewed = false
 
-    /// `sha256` refuses any module that is not the build you expected. For a module that will hold a
-    /// key, pinning it is the difference between running your signer and running someone else's.
-    public init(signerWasm: [UInt8], sha256: String? = nil) throws {
-        if let want = sha256 {
-            let got = SHA256.hash(data: Data(signerWasm)).map { String(format: "%02x", $0) }.joined()
-            guard got == want.lowercased() else {
-                throw SignerError.unexpectedModule("signer.wasm is not the expected build: \(got)")
-            }
+    /// `sha256` is required and refuses any module that is not the build you expected. For a module
+    /// that will hold a key, pinning it is the difference between running your signer and someone else's.
+    public init(signerWasm: [UInt8], sha256: String) throws {
+        let got = SHA256.hash(data: Data(signerWasm)).map { String(format: "%02x", $0) }.joined()
+        guard got == sha256.lowercased() else {
+            throw SignerError.unexpectedModule("signer.wasm is not the expected build: \(got)")
         }
         let module = try WasmKit.parseWasm(bytes: signerWasm)
         guard module.imports.isEmpty else {

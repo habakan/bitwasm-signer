@@ -41,7 +41,8 @@ are type-checked in place with JSDoc (`make check-types`), and the committed `.d
 current or that check fails.
 
 The JavaScript, Kotlin and Swift host libraries check offsets returned by the modules and can pin
-each module's SHA-256. A host configured with that hash can refuse a different build before it runs.
+each module's SHA-256. The signer's libraries require that hash and refuse a different build before it
+runs.
 
 See [the design rationale](docs/rationale.md) and [the repository map](ARCHITECTURE.md).
 

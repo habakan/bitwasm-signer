@@ -3,6 +3,7 @@
   python3 bench.py <signer.wasm> <parser.wasm> <psbt>
 """
 
+import hashlib
 import sys
 import time
 from pathlib import Path
@@ -19,9 +20,10 @@ def stage(name, f):
 
 
 signer_path, parser_path, psbt_path = sys.argv[1:4]
+signer_wasm = Path(signer_path).read_bytes()
 psbt = Path(psbt_path).read_bytes()
 P = stage("load parser.wasm", lambda: Instance(Path(parser_path).read_bytes()))
-S = stage("load signer.wasm", lambda: Signer(Path(signer_path).read_bytes()).init())
+S = stage("load signer.wasm", lambda: Signer(signer_wasm, hashlib.sha256(signer_wasm).hexdigest()).init())
 P.memory[P.parser_input():P.parser_input() + len(psbt)] = psbt
 if stage("parse PSBT", lambda: P.parser_parse(len(psbt), 0x73C5DA0A)) != 0:
     sys.exit("the parser refused the PSBT")

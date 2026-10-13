@@ -3,6 +3,7 @@
 //
 //   swift run SignerCheck <signer.wasm> <parser.wasm> <psbt> <natively-signed-psbt>
 //   swift run SignerCheck --dump <signer.wasm> <parser.wasm> <psbt>
+import Crypto
 import Foundation
 import WasmKit
 import WasmSigner
@@ -56,13 +57,14 @@ let dumpOnly = args.first == "--dump"
 if dumpOnly { args.removeFirst() }
 
 let signerWasm = [UInt8](try Data(contentsOf: URL(fileURLWithPath: args[0])))
+let pin = hex(Array(SHA256.hash(data: Data(signerWasm))))
 let parserWasm = [UInt8](try Data(contentsOf: URL(fileURLWithPath: args[1])))
 let psbt = [UInt8](try Data(contentsOf: URL(fileURLWithPath: args[2])))
 let mnemonicText = String(repeating: "abandon ", count: 11) + "about"
 let fp: UInt32 = 0x73c5_da0a
 
 func freshSigner() throws -> Signer {
-    let s = try Signer(signerWasm: signerWasm)
+    let s = try Signer(signerWasm: signerWasm, sha256: pin)
     try s.initialise()
     var mn = [UInt8](mnemonicText.utf8), pass: [UInt8] = []
     try s.seedFromMnemonic(&mn, passphrase: &pass)
@@ -111,7 +113,7 @@ do {
     ok("a wrong sha256 is refused", "\(error)".contains("not the expected build"))
 }
 
-let s = try Signer(signerWasm: signerWasm)
+let s = try Signer(signerWasm: signerWasm, sha256: pin)
 try s.initialise()
 check("fingerprint before a seed", s.fingerprint, "00000000")
 var mn = [UInt8](mnemonicText.utf8), pw: [UInt8] = []
@@ -246,7 +248,7 @@ do {
 
 // --- making a new mnemonic, from entropy and from dice, against BIP39's and the dice vectors
 do {
-    let g = try Signer(signerWasm: signerWasm)
+    let g = try Signer(signerWasm: signerWasm, sha256: pin)
     try g.initialise()
     var ent: [UInt8] = [0x9e, 0x88, 0x5d, 0x95, 0x2a, 0xd3, 0x62, 0xca, 0xeb, 0x4e, 0xfe, 0x34, 0xa8, 0xe9, 0x1b, 0xd2]
     var mn = try g.mnemonicFromEntropy(&ent)
@@ -282,7 +284,7 @@ do {
 
 // --- making a SeedQR from the words, against the published vector 4, and reading it back
 do {
-    let q = try Signer(signerWasm: signerWasm)
+    let q = try Signer(signerWasm: signerWasm, sha256: pin)
     try q.initialise()
     var words = [UInt8]("forum undo fragile fade shy sign arrest garment culture tube off merit".utf8)
     check("Standard SeedQR digits", String(decoding: try q.seedQRFromMnemonic(&words), as: UTF8.self), "073318950739065415961602009907670428187212261116")
@@ -325,7 +327,7 @@ do {
 
 // --- what a keyboard adds loads the same wallet; a bad checksum, or a word not in the list, loads nothing
 do {
-    let b = try Signer(signerWasm: signerWasm)
+    let b = try Signer(signerWasm: signerWasm, sha256: pin)
     try b.initialise()
     var w = [UInt8](("  " + mnemonicText.uppercased() + "\n").utf8), none: [UInt8] = []
     check("whitespace and capitals load the same wallet", try b.seedFromMnemonic(&w, passphrase: &none).fingerprint,
@@ -333,7 +335,7 @@ do {
 }
 for (what, bad) in [("a bad checksum", String(repeating: "abandon ", count: 11) + "abandon"),
                     ("a word not in the list", mnemonicText.replacingOccurrences(of: "about", with: "abaut"))] {
-    let b = try Signer(signerWasm: signerWasm)
+    let b = try Signer(signerWasm: signerWasm, sha256: pin)
     try b.initialise()
     var w = [UInt8](bad.utf8), none: [UInt8] = []
     do {
@@ -349,7 +351,7 @@ do {
     let words = "forum undo fragile fade shy sign arrest garment culture tube off merit"
     let digits = "073318950739065415961602009907670428187212261116"
     let compact: [UInt8] = [0x5b, 0xbd, 0x9d, 0x71, 0xa8, 0xec, 0x79, 0x90, 0x83, 0x1a, 0xff, 0x35, 0x9d, 0x42, 0x65, 0x45]
-    let q = try Signer(signerWasm: signerWasm)
+    let q = try Signer(signerWasm: signerWasm, sha256: pin)
     func typed(_ p: String) throws -> String {
         var w = [UInt8](words.utf8), pw = [UInt8](p.utf8)
         return try q.initialise().seedFromMnemonic(&w, passphrase: &pw).fingerprint
