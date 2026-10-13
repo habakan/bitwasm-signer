@@ -167,7 +167,7 @@ static int coin_info(cbor_r_t *r, int testnet) {
 static int hdkey(cbor_r_t *r, int testnet, ms_key_t *key) {
     uint64_t n, field, v;
     uint32_t seen = 0;
-    int have_pub = 0, have_chain = 0, have_origin = 0, have_children = 0, have_parent = 0;
+    int have_pub = 0, have_chain = 0, have_coin_info = 0, have_origin = 0, have_children = 0, have_parent = 0;
     memset(key, 0, sizeof(*key));
     if (!tag(r, 303) || !map_start(r, &n)) return 0;
     key->ser[0] = 0x04;
@@ -190,6 +190,7 @@ static int hdkey(cbor_r_t *r, int testnet, ms_key_t *key) {
             have_chain = 1;
         } else if (field == 5) {
             if (!coin_info(r, testnet)) return 0;
+            have_coin_info = 1;
         } else if (field == 6) {
             if (!keypath_origin(r, key)) return 0;
             have_origin = 1;
@@ -205,7 +206,7 @@ static int hdkey(cbor_r_t *r, int testnet, ms_key_t *key) {
             have_parent = 1;
         } else if (!skip(r, 0)) return 0;
     }
-    if (!have_pub || !have_chain || !have_origin || !have_children) return 0;
+    if (!have_pub || !have_chain || !have_origin || !have_children || (testnet && !have_coin_info)) return 0;
     if (!have_parent) memset(key->ser + 5, 0, 4);
     key->ser[4] = key->depth;
     v = key->path[key->depth - 1];

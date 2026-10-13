@@ -43,11 +43,11 @@ static int load(const char *text) {
 }
 
 int main(void) {
-    uint8_t seed[64], cbor[1024];
+    uint8_t seed[64], cbor[1024], mainnet_cbor[1024];
     static const char mn[] =
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
     char canonical[CORE_MULTISIG_DESC_MAX];
-    int n;
+    int n, mainnet_cbor_len = 0;
 
     pbkdf2_hmac_sha512((const uint8_t *)mn, sizeof(mn) - 1, (const uint8_t *)"mnemonic", 8, 2048, seed);
     CHECK(core_init(CORE_MAINNET) && core_load_seed(seed), "load mainnet");
@@ -123,6 +123,10 @@ int main(void) {
     CHECK(n > 0 && cbor[0] == 0xd9 && cbor[1] == 0x01 && cbor[2] == 0x91 && cbor[3] == 0xd9 && cbor[4] == 0x01 &&
               cbor[5] == 0x97,
           "crypto-output starts wsh (401), sortedmulti (407)");
+    if (n > 0 && (size_t)n <= sizeof(mainnet_cbor)) {
+        memcpy(mainnet_cbor, cbor, (size_t)n);
+        mainnet_cbor_len = n;
+    }
     CHECK(core_multisig_load_cbor(cbor, (size_t)n, &ms) == CORE_OK && !strcmp(ms.descriptor, DESC "#" CHECKSUM) &&
               !strcmp(ms.receive, RECEIVE0),
           "crypto-output CBOR registers the same wallet and receive address");
@@ -142,6 +146,9 @@ int main(void) {
 
     CHECK(core_init(CORE_TESTNET) && core_load_seed(seed), "load testnet");
     CHECK(load(DESC) == CORE_ERR_FORMAT, "a mainnet xpub on testnet");
+    CHECK(mainnet_cbor_len > 0 &&
+              core_multisig_load_cbor(mainnet_cbor, (size_t)mainnet_cbor_len, &ms) == CORE_ERR_FORMAT,
+          "mainnet crypto-output is refused on testnet");
 
     printf("%d/%d checks passed\n", checks - failures, checks);
     return failures != 0;
