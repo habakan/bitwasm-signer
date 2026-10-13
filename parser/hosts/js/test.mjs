@@ -112,7 +112,11 @@ for (const name of vectors) {
   const got = p.urReceive("ur:bytes/hdeymejtswhhylkepmykhhtsytsnoyoyaxaedsuttydmmhhpktpmsrjtgwdpfnsboxgwlbaawzuefywkdplrsrjynbvygabwjldapfcsdwkbrkch");
   check(got !== null && got.length > 0 && p.urKind === "bytes", "a bytes UR is handed back as bytes");
   const seq = p.urEncodeCbor("crypto-output", new Uint8Array([0xa0]));
-  check(seq.seqLen === 1 && seq.next().startsWith("UR:CRYPTO-OUTPUT/"), "CBOR as a crypto-output");
+  const part = seq.next();
+  check(seq.seqLen === 1 && part.startsWith("UR:CRYPTO-OUTPUT/"), "CBOR as a crypto-output");
+  const dec = Parser.loadSync(parserWasm);
+  const decoded = dec.urReceive(part);
+  check(decoded?.[0] === 0xa0 && dec.urKind === "crypto-output", "crypto-output CBOR is handed back with its kind");
 }
 
 // --- a signature that does not fit its slot is refused before anything is written

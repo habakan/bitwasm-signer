@@ -119,6 +119,8 @@ typedef struct {
     char descriptor[CORE_MULTISIG_DESC_MAX];
 } core_multisig_t;
 int core_multisig_load(const char *text, size_t len, core_multisig_t *out);
+/* Registers BCR-2020-010 crypto-output CBOR after converting its BIP48 multipath keys for the same checks */
+int core_multisig_load_cbor(const uint8_t *cbor, size_t len, core_multisig_t *out);
 void core_multisig_unload(void);
 
 /* CBOR for a crypto-account UR (the account's single-sig keys and its BIP48 key) and a crypto-output UR (the

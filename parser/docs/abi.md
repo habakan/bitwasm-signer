@@ -39,9 +39,9 @@ before reading or writing — the module is untrusted from the host's point of v
 | `parser_nonces` | `() -> i32` | Anti-exfil: 16 x 33 bytes, per input `1` then the coordinator's `n`, for `signer_nonces` |
 | `parser_nonce_points` | `() -> i32` | Anti-exfil: 16 x 33 bytes the host fills from `signer_nonce_points`, aligned with `parser_sigs` |
 | `parser_ur_reset` | `() -> ()` | Drop decoder state before a new animated QR |
-| `parser_ur_receive` | `(len: i32) -> i32` | Feed one UR part from the input buffer. `>0`: PSBT (or bytes) length, now in the input buffer. `0`: more parts needed. `<0`: `UR_ERR_*` |
+| `parser_ur_receive` | `(len: i32) -> i32` | Feed one UR part from the input buffer. `>0`: completed PSBT, bytes, or `crypto-output` CBOR length, now in the input buffer. `0`: more parts needed. `<0`: `UR_ERR_*` |
 | `parser_ur_progress` | `() -> i32` | Parts received so far (for a progress display only) |
-| `parser_ur_kind` | `() -> i32` | What the completed UR was: `0` a PSBT (`crypto-psbt` or `psbt`), `1` `bytes`, such as a BSMS record or a descriptor for `signer_multisig_load` |
+| `parser_ur_kind` | `() -> i32` | What the completed UR was: `0` a PSBT (`crypto-psbt` or `psbt`), `1` `bytes`, such as a BSMS record or descriptor, `2` `crypto-output` CBOR |
 | `parser_ur_encode_start` | `(len: i32, max_fragment_len: i32) -> i32` | Begin encoding the signed PSBT in the output buffer. Returns `seq_len`, or a negative `UR_ERR_*` |
 | `parser_ur_encode_cbor` | `(kind: i32, len: i32, max_fragment_len: i32) -> i32` | Begin encoding `len` bytes of CBOR the host wrote to the output buffer, as they are: kind `1` crypto-account, `2` crypto-output (from `signer_account_cbor` / `signer_multisig_cbor`) |
 | `parser_ur_encode_next` | `() -> i32` | Write the next part as uppercase text into the input buffer. Returns its length, or a negative `UR_ERR_*` |

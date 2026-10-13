@@ -108,7 +108,11 @@ fun main(args: Array<String>) {
         val got = p.urReceive("ur:bytes/hdeymejtswhhylkepmykhhtsytsnoyoyaxaedsuttydmmhhpktpmsrjtgwdpfnsboxgwlbaawzuefywkdplrsrjynbvygabwjldapfcsdwkbrkch")
         check(got != null && got.isNotEmpty() && p.urIsBytes, "a bytes UR is handed back as bytes")
         val seq = p.urEncodeCbor(false, byteArrayOf(0xa0.toByte()))
-        check(seq.seqLen == 1 && seq.next().startsWith("UR:CRYPTO-OUTPUT/"), "CBOR as a crypto-output")
+        val part = seq.next()
+        check(seq.seqLen == 1 && part.startsWith("UR:CRYPTO-OUTPUT/"), "CBOR as a crypto-output")
+        val dec = Parser(parserWasm)
+        val decoded = dec.urReceive(part)
+        check(decoded?.contentEquals(byteArrayOf(0xa0.toByte())) == true && dec.urKind == "crypto-output", "crypto-output CBOR is handed back with its kind")
     }
 
     // a signature that does not fit its slot is refused before anything is written

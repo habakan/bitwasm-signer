@@ -355,13 +355,25 @@ for (const v of ur.vectors.filter((v) => v.type === "crypto-psbt")) {
         `${name}: round trip`);
 }
 
-// --- bytes (a BSMS record or a descriptor) is handed back with its kind; any other type is refused
+// --- bytes and typed crypto-output CBOR are returned with their kind; other types are refused
 {
   const bytesUr = "ur:bytes/hdeymejtswhhylkepmykhhtsytsnoyoyaxaedsuttydmmhhpktpmsrjtgwdpfnsboxgwlbaawzuefywkdplrsrjynbvygabwjldapfcsdwkbrkch";
   const p = new Parser();
   p.call("parser_ur_reset");
   const n = p.ur(bytesUr);
   check(n > 0 && p.call("parser_ur_kind") === 1, "bytes UR accepted as kind 1");
+
+  const cbor = Buffer.from([0xa0]);
+  const enc = new Parser();
+  enc.write(cbor, enc.call("parser_output"));
+  check(enc.call("parser_ur_encode_cbor", 2, cbor.length, 100) === 1, "crypto-output encoder starts");
+  const partLen = enc.call("parser_ur_encode_next");
+  const part = enc.read(enc.call("parser_input"), partLen).toString("utf8");
+  const dec = new Parser();
+  const outputLen = dec.ur(part);
+  check(outputLen === cbor.length && dec.call("parser_ur_kind") === 2 &&
+        hex(dec.read(dec.call("parser_input"), outputLen)) === hex(cbor), "crypto-output CBOR returned as kind 2");
+
   p.call("parser_ur_reset");
   check(p.ur(bytesUr.replace("ur:bytes/", "ur:crypto-seed/")) === UR_ERR_TYPE, "another type rejected");
 }

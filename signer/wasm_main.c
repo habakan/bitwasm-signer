@@ -17,7 +17,7 @@
 
 /* Three return conventions, and which one a function uses follows from what it does:
  *   init / seed / seedqr / load_seed / set_prevtx  1 on success, 0 on failure (they can only fail one way)
- *   review / display / xpub / message / multisig_load  CORE_OK (0) on success, CORE_ERR_* otherwise
+ *   review / display / xpub / message / multisig_load* CORE_OK (0) on success, CORE_ERR_* otherwise
  *   sign                                  the number of signatures, or -CORE_ERR_*
  *   find_address                          chain << 20 | index, or -CORE_ERR_*
  *   account_cbor / multisig_cbor          the CBOR's length, or -CORE_ERR_*
@@ -261,6 +261,11 @@ int EXPORT(signer_message_sign)(void) {
  * signer_multisig_output() */
 int EXPORT(signer_multisig_load)(unsigned len) {
     int rc = len <= sizeof(in) ? core_multisig_load((const char *)in, len, &multisig) : CORE_ERR_FORMAT;
+    wipe(in, sizeof(in));
+    return rc;
+}
+int EXPORT(signer_multisig_load_cbor)(unsigned len) {
+    int rc = len <= sizeof(in) ? core_multisig_load_cbor(in, len, &multisig) : CORE_ERR_FORMAT;
     wipe(in, sizeof(in));
     return rc;
 }

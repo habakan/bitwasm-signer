@@ -765,6 +765,15 @@ done:
     return rc;
 }
 
+int core_multisig_load_cbor(const uint8_t *cbor, size_t len, core_multisig_t *out) {
+    char descriptor[MS_DESC_MAX];
+    core_multisig_unload();
+    wipe(out, sizeof(*out));
+    if (!seed_loaded) return CORE_ERR_NO_SEED;
+    if (!ms_cbor_descriptor(cbor, len, network == CORE_TESTNET, descriptor)) return CORE_ERR_FORMAT;
+    return core_multisig_load(descriptor, strlen(descriptor), out);
+}
+
 void core_multisig_unload(void) {
     wipe(&wallet, sizeof(wallet));
     wallet_ours = -1;
@@ -789,7 +798,7 @@ int core_account_cbor(uint32_t account, uint8_t *out, size_t cap) {
         if (!account_key(purposes[i], account, path, &depth, ser)) return -CORE_ERR_CRYPTO;
         cbor_head(&c, CBOR_TAG, 308);
         for (unsigned t = 0; t < 2 && tags[i][t]; t++) cbor_head(&c, CBOR_TAG, tags[i][t]);
-        cbor_hdkey(&c, ser, master_fp, path, depth, network == CORE_TESTNET);
+        cbor_hdkey(&c, ser, master_fp, path, depth, network == CORE_TESTNET, 0);
     }
     return c.n > cap ? -CORE_ERR_FORMAT : (int)c.n;
 }
@@ -804,7 +813,7 @@ int core_multisig_cbor(uint8_t *out, size_t cap) {
     cbor_head(&c, CBOR_UINT, 2), cbor_head(&c, CBOR_ARRAY, wallet.n);
     for (unsigned i = 0; i < wallet.n; i++) {
         const ms_key_t *k = &wallet.keys[i];
-        cbor_hdkey(&c, k->ser, k->fingerprint, k->path, k->depth, network == CORE_TESTNET);
+        cbor_hdkey(&c, k->ser, k->fingerprint, k->path, k->depth, network == CORE_TESTNET, 1);
     }
     return c.n > cap ? -CORE_ERR_FORMAT : (int)c.n;
 }

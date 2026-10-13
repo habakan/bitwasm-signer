@@ -88,6 +88,9 @@ do {
     let seq = try p.urEncodeCbor(account: false, cbor: [0xa0])
     let part = try seq.next()
     check(seq.seqLen == 1 && part.hasPrefix("UR:CRYPTO-OUTPUT/"), "CBOR as a crypto-output")
+    let dec = try Parser(parserWasm: parserWasm)
+    let decoded = try dec.urReceive(part)
+    check(decoded == [0xa0] && dec.urKind == "crypto-output", "crypto-output CBOR is handed back with its kind")
 }
 
 // UR: encode what finalize produced, feed the parts back, get the same bytes

@@ -37,7 +37,7 @@ endif
 
 SIGNER_SRC := signer/wasm_main.c signer/core.c signer/address.c signer/bip32.c signer/sighash.c \
   signer/seedqr.c signer/bip85.c signer/multisig.c signer/cbor.c signer/ripemd160.c signer/sha512.c signer/secp_callbacks.c \
-  signer/secp256k1_unity.c \
+  signer/secp256k1_unity.c signer/multisig_cbor.c \
   parser/c/src/tx.c parser/c/src/sha256.c
 PARSER_C_SRC := $(wildcard parser/c/src/*.c)
 C_FORMAT_FILES := $(PARSER_C_SRC) parser/tools/wamr_node.c $(wildcard parser/c/include/*.h parser/tests/*.c signer/*.c signer/tests/*.c) \
@@ -208,12 +208,12 @@ check-hosts-agree: build/signer.wasm build/parser.wasm
 	  diff build/host-js.out build/host-kotlin.out && echo "JavaScript and Kotlin agree"; \
 	elif [ "$(REQUIRE_KOTLIN)" = "1" ]; then echo "kotlinc not found and REQUIRE_KOTLIN=1"; exit 1; \
 	else echo "kotlinc not found; skipping the Kotlin host"; fi; \
-	if command -v swift >/dev/null; then \
+	if command -v swift >/dev/null && swift --version | grep -Eq 'version (6\.(3|[4-9]|[1-9][0-9]+)|([7-9]|[1-9][0-9]+))\.'; then \
 	  $(MAKE) -s -C signer/hosts/swift dump PSBT=$(PWD)/$(PSBT_VECTOR) 2>/dev/null \
 	    | grep -vE '^Building|^Build complete|^\[' > build/host-swift.out; \
 	  diff build/host-js.out build/host-swift.out && echo "JavaScript and Swift agree"; \
-	elif [ "$(REQUIRE_SWIFT)" = "1" ]; then echo "swift not found and REQUIRE_SWIFT=1"; exit 1; \
-	else echo "swift not found; skipping the Swift host"; fi
+	elif [ "$(REQUIRE_SWIFT)" = "1" ]; then echo "Swift 6.3+ not found and REQUIRE_SWIFT=1"; exit 1; \
+	else echo "Swift 6.3+ not found; skipping the Swift host"; fi
 .PHONY: check-hosts-agree
 
 # Bitcoin Core as the oracle. Core decides what a PSBT means, so agreeing with it is worth more than

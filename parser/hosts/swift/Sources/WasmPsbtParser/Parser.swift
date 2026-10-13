@@ -238,7 +238,7 @@ public final class Parser {
     /// Drop decoder state before a new animated QR.
     public func urReset() throws { try call("parser_ur_reset") }
 
-    /// Feed one UR part. Returns the PSBT once the message is complete, otherwise nil.
+    /// Feed one UR part. Returns the completed PSBT, bytes, or crypto-output CBOR, otherwise nil.
     public func urReceive(_ part: String) throws -> [UInt8]? {
         planAvailable = false
         let raw = Array(part.utf8)
@@ -252,8 +252,15 @@ public final class Parser {
     /// Parts received so far. For a progress display only.
     public var urProgress: Int { (try? Int(call("parser_ur_progress"))) ?? 0 }
 
-    /// What the UR `urReceive` completed was: false a PSBT, true bytes (a BSMS record or a descriptor, as text).
-    public var urIsBytes: Bool { ((try? call("parser_ur_kind")) ?? 0) == 1 }
+    /// What `urReceive` completed: a PSBT, bytes, or crypto-output CBOR.
+    public var urKind: String {
+        switch (try? call("parser_ur_kind")) ?? 0 {
+        case 1: "bytes"
+        case 2: "crypto-output"
+        default: "psbt"
+        }
+    }
+    public var urIsBytes: Bool { urKind == "bytes" }
 
     /// Encode CBOR signer.wasm made (accountCbor or multisigCbor) as crypto-account or crypto-output payloads.
     public func urEncodeCbor(account: Bool, cbor: [UInt8], fragmentLen: Int = 100) throws -> UrEncoder {

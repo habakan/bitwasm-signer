@@ -497,9 +497,8 @@ void EXPORT(parser_ur_reset)(void) {
     ur_ready = 1;
 }
 
-/* Called after the host writes one QR payload (len bytes) to parser_input(). Returns the PSBT length once the
- * UR is complete, with the PSBT now at the start of parser_input() for parser_parse(); 0 while more parts are
- * needed; a negative UR_ERR_* for a rejected part, which does not disturb the parts received so far */
+/* Called after the host writes one QR payload (len bytes) to parser_input(). Returns the completed payload
+ * length with PSBT, bytes, or crypto-output CBOR at parser_input(); 0 while incomplete, negative on rejection. */
 int EXPORT(parser_ur_receive)(unsigned len) {
     const uint8_t *psbt;
     size_t psbt_len;
@@ -509,16 +508,22 @@ int EXPORT(parser_ur_receive)(unsigned len) {
     if (!ur_ready) parser_ur_reset();
     if (len > PSBT_MAX) return UR_ERR_LIMIT;
     if ((n = ur_decoder_receive((char *)in_buf, len)) <= 0) return (int)n;
-    ur_kind = strcmp(ur_decoder_type(), "bytes") ? 0 : 1;
-    if ((ur_kind == 0 && strcmp(ur_decoder_type(), "crypto-psbt") && strcmp(ur_decoder_type(), "psbt")) ||
-        !ur_cbor_bytes(ur_decoder_message(), (size_t)n, &psbt, &psbt_len))
-        return UR_ERR_TYPE;
+    if (!strcmp(ur_decoder_type(), "crypto-output")) {
+        if ((size_t)n > PSBT_MAX) return UR_ERR_LIMIT;
+        memcpy(in_buf, ur_decoder_message(), (size_t)n);
+        ur_kind = 2;
+        return (int)n;
+    }
+    if (!strcmp(ur_decoder_type(), "bytes")) ur_kind = 1;
+    else if (!strcmp(ur_decoder_type(), "crypto-psbt") || !strcmp(ur_decoder_type(), "psbt")) ur_kind = 0;
+    else return UR_ERR_TYPE;
+    if (!ur_cbor_bytes(ur_decoder_message(), (size_t)n, &psbt, &psbt_len)) return UR_ERR_TYPE;
     if (psbt_len > PSBT_MAX) return UR_ERR_LIMIT;
     memmove(in_buf, psbt, psbt_len);
     return (int)psbt_len;
 }
 
-/* What the last complete UR was: 0 a PSBT, 1 bytes (a BSMS record or a descriptor, as text) */
+/* What the last complete UR was: 0 PSBT, 1 bytes, 2 crypto-output CBOR */
 unsigned EXPORT(parser_ur_kind)(void) {
     return (unsigned)ur_kind;
 }

@@ -41,12 +41,12 @@ unsigned char *parser_nonce_points(void);
 unsigned char *parser_output(void);
 
 /* Animated QR: reset, then for each QR payload write it to parser_input() and call parser_ur_receive(len).
- * A positive result is the PSBT length, with the PSBT already in parser_input() for parser_parse().
+ * A positive result is the payload length, with PSBT/bytes/crypto-output CBOR in parser_input().
  * Negative results are UR_ERR_* from ur.h */
 void parser_ur_reset(void);
 int parser_ur_receive(unsigned len);
 unsigned parser_ur_progress(void);
-/* 0 when the completed UR was a PSBT, 1 when it was bytes, whose payload is in parser_input() likewise */
+/* 0 PSBT, 1 bytes, 2 crypto-output CBOR */
 unsigned parser_ur_kind(void);
 /* Signed PSBT as an animated QR: parser_ur_encode_start(len returned by parser_finalize(), max fragment bytes),
  * then parser_ur_encode_next() for each frame, reading the text from parser_input() */
