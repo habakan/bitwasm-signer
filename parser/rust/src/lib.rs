@@ -5,7 +5,7 @@
 //! in ../../docs/module-abi.md, and this module's own ABI is in ../docs/abi.md.
 //!
 //! This is being ported from the C in ../src, one piece at a time. While that is in progress both
-//! are built and `make check-rust-agrees` requires them to produce identical output on every vector
+//! are built and `make check-rust` requires them to produce identical output on every vector
 //! and on fuzzed input; the C is the reference until the port is complete.
 #![no_std]
 

@@ -286,6 +286,9 @@ check-rust-shape: build/parser-rs.wasm
 	@echo "the Rust module has no imports and stays inside Lime1"
 .PHONY: check-rust-shape
 
+check-rust: check-rust-plan check-rust-suite check-rust-shape
+.PHONY: check-rust
+
 # The host libraries ship as plain .mjs that anyone can read and import with no build step. This
 # type-checks them in place and regenerates the .d.mts beside them, failing if the committed ones are
 # stale — so a TypeScript consumer gets types without this repository shipping a build artifact as
