@@ -141,7 +141,7 @@ export class Signer {
         words?: 12 | 18 | 24;
         index?: number;
     }): Uint8Array<ArrayBuffer>;
-    /** For a seed you already have. 64 bytes. */
+    /** For a seed you already have. 64 bytes, cleared here like the mnemonic. */
     /** @param {Uint8Array} seed */
     loadSeed(seed: Uint8Array): this;
     /** Clears the key and everything derived from it. Call it when you are done, not when you

@@ -295,12 +295,17 @@ export class Signer {
     }
   }
 
-  /** For a seed you already have. 64 bytes. */
+  /** For a seed you already have. 64 bytes, cleared here like the mnemonic. */
   /** @param {Uint8Array} seed */
   loadSeed(seed) {
-    if (seed.length !== 64) throw new RangeError(`a seed is 64 bytes, got ${seed.length}`);
-    this.#mem.set(seed, this.#e.signer_input());
-    if (!this.#e.signer_load_seed()) throw new Error("load_seed failed");
+    try {
+      if (!(seed instanceof Uint8Array)) throw new TypeError("a seed is a Uint8Array, so that it can be cleared");
+      if (seed.length !== 64) throw new RangeError(`a seed is 64 bytes, got ${seed.length}`);
+      this.#mem.set(seed, this.#e.signer_input());
+      if (!this.#e.signer_load_seed()) throw new Error("load_seed failed");
+    } finally {
+      if (seed instanceof Uint8Array) seed.fill(0);
+    }
     return this;
   }
 
