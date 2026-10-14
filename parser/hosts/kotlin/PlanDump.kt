@@ -25,5 +25,5 @@ fun main(args: Array<String>) {
         println("  out $i  ${btc(x.amount)}  ${hex(x.spk)}$mine")
     }
     // The fee is computed from amounts that are claims until each prevtx is checked
-    println("  fee     ${btc(plan.fee)}")
+    println("  fee     ${plan.fee?.let(::btc) ?: "-"}")
 }

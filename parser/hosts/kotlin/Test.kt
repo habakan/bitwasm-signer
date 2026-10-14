@@ -32,8 +32,9 @@ fun main(args: Array<String>) {
     for (f in vectors) {
         val plan = Parser(parserWasm).parse(f.readBytes(), fp)
         check(plan.inputs.isNotEmpty() && plan.outputs.isNotEmpty(), "${f.name}: has inputs and outputs")
-        check(plan.fee > 0 && plan.fee < 1_000_000, "${f.name}: fee ${plan.fee} is plausible")
-        check(plan.totalIn - plan.totalOut == plan.fee, "${f.name}: fee is in minus out")
+        val fee = plan.fee ?: 0
+        check(fee > 0 && fee < 1_000_000, "${f.name}: fee $fee is plausible")
+        check(plan.totalIn!! - plan.totalOut!! == plan.fee, "${f.name}: fee is in minus out")
         for (i in plan.inputs) {
             check(i.prevTxid.size == 32, "${f.name}: txid is 32 bytes")
             check(i.spk.isNotEmpty() && i.spk.size <= 83, "${f.name}: input spk length")
