@@ -1,4 +1,4 @@
-//! The module's entry points: the same seventeen names the C exports, in the same order of use.
+//! The module's entry points: the same eighteen names the C exports, in the same order of use.
 //!
 //! Keeping the names identical is what let the existing suite — 556 vectors, the UR reference
 //! values, the comparison against Bitcoin Core — test this module unchanged. A port that needed its
@@ -8,12 +8,13 @@
 //! here rather than handing it pointers of its own.
 
 use crate::plan::{self, Plan, Sig};
-use crate::psbt::{self, Parsed, PSBT_MAX, PSBT_OUT_MAX};
+use crate::psbt::{self, Parsed, EXFIL_KEY, PSBT_MAX, PSBT_OUT_MAX};
 
 static mut PSBT_IN: [u8; PSBT_MAX] = [0; PSBT_MAX];
 static mut PSBT_OUT: [u8; PSBT_OUT_MAX] = [0; PSBT_OUT_MAX];
 static mut PARSED: Parsed = Parsed::ZERO;
 static mut SIGS: [Sig; plan::MAX_INPUTS] = [Sig::ZERO; plan::MAX_INPUTS];
+static mut POINTS: [[u8; 33]; plan::MAX_INPUTS] = [[0; 33]; plan::MAX_INPUTS];
 static mut IN_LEN: usize = 0;
 static mut IS_PARSED: bool = false;
 
@@ -35,6 +36,18 @@ pub extern "C" fn parser_plan() -> *const Plan {
 #[no_mangle]
 pub extern "C" fn parser_sigs() -> *mut Sig {
     (&raw mut SIGS) as *mut Sig
+}
+
+/// Anti-exfil, 16 x 33 bytes each: the coordinator's n per input, and the Q the host writes for
+/// `parser_finalize()` to add. Laid out as the C's, in ../../c/include/psbt_parser.h.
+#[no_mangle]
+pub extern "C" fn parser_nonces() -> *const u8 {
+    unsafe { (&raw const (*(&raw const PARSED)).nonces) as *const u8 }
+}
+
+#[no_mangle]
+pub extern "C" fn parser_nonce_points() -> *mut u8 {
+    (&raw mut POINTS) as *mut u8
 }
 
 #[no_mangle]
@@ -68,6 +81,7 @@ pub extern "C" fn parser_parse(len: u32, fp: u32) -> i32 {
     unsafe {
         IS_PARSED = false;
         IN_LEN = 0;
+        *(&raw mut POINTS) = [[0; 33]; plan::MAX_INPUTS];
     }
     if len > PSBT_MAX {
         return psbt::Err::Limit as i32;
@@ -94,6 +108,7 @@ pub extern "C" fn parser_finalize(n: u32) -> i32 {
     let n = n as usize;
     let parsed: &Parsed = unsafe { &*(&raw const PARSED) };
     let sigs: &[Sig] = unsafe { &*(&raw const SIGS) };
+    let points: &[[u8; 33]] = unsafe { &*(&raw const POINTS) };
     let in_len = unsafe { IN_LEN };
     if !unsafe { IS_PARSED } || n > plan::MAX_INPUTS {
         return -(psbt::Err::Sig as i32);
@@ -117,7 +132,7 @@ pub extern "C" fn parser_finalize(n: u32) -> i32 {
         } else {
             s.pubkey[0] != 0 || (s.sig_len != 64 && s.sig_len != 65)
         };
-        if bad {
+        if bad || (points[k] != [0; 33] && points[k][0] != 2 && points[k][0] != 3) {
             return -(psbt::Err::Sig as i32);
         }
         by_input[idx] = k;
@@ -156,6 +171,22 @@ pub extern "C" fn parser_finalize(n: u32) -> i32 {
         let l = s.sig_len as usize;
         dst[o..o + l].copy_from_slice(&s.sig[..l]);
         o += l;
+        if points[k] != [0; 33] {
+            // PSBT_IN_PROPRIETARY {0xfc, 7, "bitwasm", 2, our key}: the x-only key for P2TR
+            let own = if parsed.plan.inputs[i].spk.is_p2tr() { &s.pubkey[1..] } else { &s.pubkey[..] };
+            dst[o] = (EXFIL_KEY.len() + 1 + own.len()) as u8;
+            o += 1;
+            dst[o..o + EXFIL_KEY.len()].copy_from_slice(&EXFIL_KEY);
+            o += EXFIL_KEY.len();
+            dst[o] = 2;
+            o += 1;
+            dst[o..o + own.len()].copy_from_slice(own);
+            o += own.len();
+            dst[o] = 33;
+            o += 1;
+            dst[o..o + 33].copy_from_slice(&points[k]);
+            o += 33;
+        }
     }
     dst[o..o + in_len - prev].copy_from_slice(&src[prev..in_len]);
     o += in_len - prev;
