@@ -32,8 +32,9 @@ check(own.count >= 4, "\(own.count) hand-made vectors")
 for name in own {
     let plan = try Parser(parserWasm: parserWasm).parse(try load(name), fingerprint: fp)
     check(!plan.inputs.isEmpty && !plan.outputs.isEmpty, "\(name): has inputs and outputs")
-    check(plan.fee > 0 && plan.fee < 1_000_000, "\(name): fee \(plan.fee) is plausible")
-    check(plan.totalIn - plan.totalOut == plan.fee, "\(name): fee is in minus out")
+    let fee = plan.fee ?? 0
+    check(fee > 0 && fee < 1_000_000, "\(name): fee \(fee) is plausible")
+    check(plan.totalIn.flatMap { i in plan.totalOut.map { i - $0 } } == plan.fee, "\(name): fee is in minus out")
     for i in plan.inputs {
         check(i.prevTxid.count == 32, "\(name): txid is 32 bytes")
         check(!i.spk.isEmpty && i.spk.count <= 83, "\(name): input spk length")

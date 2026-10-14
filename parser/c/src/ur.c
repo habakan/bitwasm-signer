@@ -58,8 +58,10 @@ double ur_rng_next_double(ur_rng_t *r) {
     return (double)ur_rng_next(r) / 18446744073709551616.0;
 }
 
+/* next_double() rounds to exactly 1.0 for the top 2^10 values of next(), so the result is capped */
 uint64_t ur_rng_next_int(ur_rng_t *r, uint64_t low, uint64_t high) {
-    return (uint64_t)(ur_rng_next_double(r) * (double)(high - low + 1)) + low;
+    uint64_t v = (uint64_t)(ur_rng_next_double(r) * (double)(high - low + 1)) + low;
+    return v > high ? high : v;
 }
 
 int ur_bytewords_decode(const char *s, size_t n, uint8_t *out, size_t cap) {
@@ -116,6 +118,7 @@ void ur_sampler_init(const double *w, size_t n, double *probs, int16_t *aliases)
 int ur_sampler_next(const double *probs, const int16_t *aliases, size_t n, ur_rng_t *r) {
     double r1 = ur_rng_next_double(r), r2 = ur_rng_next_double(r);
     int i = (int)((double)n * r1);
+    if (i >= (int)n) i = (int)n - 1; /* r1 can be exactly 1.0, as in ur_rng_next_int() */
     return r2 < probs[i] ? i : aliases[i];
 }
 
@@ -392,7 +395,8 @@ long ur_decoder_receive(char *s, size_t n) {
         seq_num = (uint32_t)f[0], seq_len = (uint32_t)f[1], message_len = (uint32_t)f[2], checksum = (uint32_t)f[3];
         if (seq_num != c_seq_num || seq_len != c_seq_len || !seq_num || !frag_len) return UR_ERR_PART;
         /* the encoder splits into ceil(message_len / frag_len) fragments */
-        if (seq_len > UR_MAX_SEQ_LEN || (size_t)seq_len * frag_len > d.work_cap) return UR_ERR_LIMIT;
+        if (seq_len > UR_MAX_SEQ_LEN || frag_len > UR_MAX_FRAGMENT || (size_t)seq_len * frag_len > d.work_cap)
+            return UR_ERR_LIMIT;
         if (!message_len || (message_len + frag_len - 1) / frag_len != seq_len) return UR_ERR_PART;
         if (!d.multipart) {
             memcpy(d.type, type, sizeof(type));

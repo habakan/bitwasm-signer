@@ -61,6 +61,13 @@ const mnBytes = new TextEncoder().encode(MNEMONIC);
 S.seedFromMnemonic(mnBytes);
 ok("the mnemonic is zeroed", mnBytes.every((b) => b === 0));
 check("fingerprint from the BIP39 test vector", S.fingerprint, "73c5da0a");
+{
+  const T = await Signer.load(signerWasm, pin);
+  const seed = new Uint8Array(createHash("sha512").update("seed").digest());
+  T.init().loadSeed(seed);
+  ok("the seed passed to loadSeed is zeroed", seed.every((b) => b === 0));
+  T.unload();
+}
 
 // --- a full round, compared against the native signer's output
 const { plan, prevTxs } = planFor(`${root}parser/build/vectors/own_mixed_nwu.psbt`, parseInt("73c5da0a", 16));

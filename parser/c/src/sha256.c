@@ -43,6 +43,8 @@ static void compress(uint32_t *s, const uint8_t *b) {
     s[5] += f;
     s[6] += g;
     s[7] += h;
+    /* w is the message block: for a secret input (BIP39 entropy) it must not outlive the call */
+    for (volatile uint32_t *v = w; v < w + 64;) *v++ = 0;
 }
 
 void sha256_init(sha256_ctx *c) {

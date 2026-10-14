@@ -28,8 +28,9 @@ plandump.jar: Parser.kt PlanDump.kt $(subst :, ,$(CP))
 
 define fetch
 	mkdir -p lib
-	curl -sL -o $@ $(BASE)/$(1)/$(CHICORY)/$(1)-$(CHICORY).jar
-	echo "$(2)  $@" | (shasum -a 256 -c - || sha256sum -c -)
+	curl -sL -o $@.tmp $(BASE)/$(1)/$(CHICORY)/$(1)-$(CHICORY).jar
+	echo "$(2)  $@.tmp" | (shasum -a 256 -c - || sha256sum -c -)
+	mv $@.tmp $@
 endef
 
 lib/runtime-$(CHICORY).jar:

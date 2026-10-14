@@ -263,11 +263,15 @@ class Signer(signerWasm: ByteArray, sha256: String) {
         }
     }
 
-    /** For a seed you already have. 64 bytes. */
+    /** For a seed you already have. 64 bytes, zeroed here like the mnemonic. */
     fun loadSeed(seed: ByteArray): Signer {
-        require(seed.size == 64) { "a seed is 64 bytes, got ${seed.size}" }
-        memory.write(call("signer_input"), seed)
-        require(call("signer_load_seed") == 1) { "load_seed failed" }
+        try {
+            require(seed.size == 64) { "a seed is 64 bytes, got ${seed.size}" }
+            memory.write(call("signer_input"), seed)
+            require(call("signer_load_seed") == 1) { "load_seed failed" }
+        } finally {
+            seed.fill(0)
+        }
         return this
     }
 

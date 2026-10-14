@@ -60,10 +60,22 @@ class PlanOutput(val amount: Long, val spk: ByteArray, val key: KeyOrigin?)
 
 /** What the module read out of the PSBT. Every field is a claim until the host checks it. */
 class Plan(val txVersion: Int, val locktime: Int, val inputs: List<PlanInput>, val outputs: List<PlanOutput>) {
-    val totalIn: Long get() = inputs.sumOf { it.amount }
-    val totalOut: Long get() = outputs.sumOf { it.amount }
-    /** Derived from amounts that are claims until each input's prevtx is checked. */
-    val fee: Long get() = totalIn - totalOut
+    /** null when an amount or the total does not fit in a Long: the module passes amounts through unchecked. */
+    val totalIn: Long? get() = sum(inputs.map { it.amount })
+    val totalOut: Long? get() = sum(outputs.map { it.amount })
+    /** Derived from amounts that are claims until each input's prevtx is checked. null when the
+     *  outputs exceed the inputs or a total does not fit. */
+    val fee: Long? get() {
+        val i = totalIn ?: return null
+        val o = totalOut ?: return null
+        return if (i >= o) i - o else null
+    }
+
+    private fun sum(amounts: List<Long>): Long? = try {
+        amounts.fold(0L) { s, a -> if (a < 0) return null else Math.addExact(s, a) }
+    } catch (e: ArithmeticException) {
+        null
+    }
 }
 
 /** A signature for [finalize]. */

@@ -30,8 +30,8 @@ On Android the module is an asset: `Parser(assets.open("parser.wasm").readBytes(
 
 `key` is a `KeyOrigin?` — BIP380's name for this. It prints as `73c5da0a/84h/0h/0h/0/0`. **It is a claim**: the module read it
 out of the PSBT. Derive the key yourself and check that it produces `spk` before you call an output
-change, or an input yours. `plan.fee` is `totalIn - totalOut`, and those amounts are claims too
-until each input's `prevtx` is checked against its `prevTxid`.
+change, or an input yours. `plan.fee` is `totalIn - totalOut`, or null when that is negative or
+overflows, and those amounts are claims too until each input's `prevtx` is checked against its `prevTxid`.
 
 Anything the module rejects throws a `ParserException` with a readable message (`P_ERR_MAGIC`,
 `P_ERR_LIMIT`, `UR_ERR_BYTEWORDS`, …). An offset outside the module's memory throws

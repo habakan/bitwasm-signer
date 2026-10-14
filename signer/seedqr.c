@@ -15,6 +15,7 @@ static void sha256_of(const uint8_t *p, size_t n, uint8_t out[32]) {
     sha256_init(&c);
     sha256_update(&c, p, n);
     sha256_final(&c, out);
+    wipe(&c, sizeof(c));
 }
 
 /* Take 11 bits per word index back into entropy. Returns its length in bytes */

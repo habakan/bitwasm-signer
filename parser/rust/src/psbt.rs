@@ -11,7 +11,10 @@ use crate::reader::Reader;
 use crate::tx;
 
 pub const PSBT_MAX: usize = 32768;
-pub const PSBT_OUT_MAX: usize = PSBT_MAX + plan::MAX_INPUTS * 128;
+/// A signature and an anti-exfil Q per input.
+pub const PSBT_OUT_MAX: usize = PSBT_MAX + plan::MAX_INPUTS * 192;
+/// The proprietary key prefix of the anti-exfil fields: 1 is the coordinator's n, 2 our Q.
+pub const EXFIL_KEY: [u8; 9] = [0xfc, 7, b'b', b'i', b't', b'w', b'a', b's', b'm'];
 const MAX_KV: usize = 64;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -143,6 +146,8 @@ pub struct Parsed {
     pub prevtx_off: [u32; plan::MAX_INPUTS],
     pub prevtx_len: [u32; plan::MAX_INPUTS],
     pub in_map_end: [usize; plan::MAX_INPUTS],
+    /// Per input, 1 then the coordinator's n, or all zero.
+    pub nonces: [[u8; 33]; plan::MAX_INPUTS],
 }
 
 impl Parsed {
@@ -151,6 +156,7 @@ impl Parsed {
         prevtx_off: [0; plan::MAX_INPUTS],
         prevtx_len: [0; plan::MAX_INPUTS],
         in_map_end: [0; plan::MAX_INPUTS],
+        nonces: [[0; 33]; plan::MAX_INPUTS],
     };
 }
 
@@ -373,6 +379,13 @@ fn parse_input(r: &mut Reader, idx: usize, fp: u32, in_buf_base: usize, out: &mu
                 }
                 has_merkle = true;
             }
+            0xfc if klen == EXFIL_KEY.len() + 1 && e.key[..EXFIL_KEY.len()] == EXFIL_KEY && e.key[EXFIL_KEY.len()] == 1 => {
+                if e.val.len() != 32 {
+                    return Err(Err::Format);
+                }
+                out.nonces[idx][0] = 1;
+                out.nonces[idx][1..].copy_from_slice(e.val);
+            }
             _ => {}
         }
     }
@@ -462,6 +475,7 @@ fn parse_input(r: &mut Reader, idx: usize, fp: u32, in_buf_base: usize, out: &mu
 
     // Only a P2WPKH (or a P2SH whose redeem script is one) with our derivation and no signature yet,
     // or a P2TR key-path spend with no script tree and no signature yet, is one this signer will sign
+    let mut is_tap = false;
     let chosen = if in_.spk.is_wpkh() && (in_.spk.len == 22 || wpkh_redeem) && bip32.found && !signed_by_cand {
         in_.sighash_type = if sighash == 0xffff_ffff { 0x01 } else { sighash as u8 };
         Some(bip32)
@@ -470,10 +484,24 @@ fn parse_input(r: &mut Reader, idx: usize, fp: u32, in_buf_base: usize, out: &mu
         Some(bip32)
     } else if in_.spk.is_p2tr() && tap.found && !has_merkle && !has_tapsig {
         in_.sighash_type = if sighash == 0xffff_ffff { 0x00 } else { sighash as u8 };
+        is_tap = true;
         Some(tap)
     } else {
         None
     };
+
+    // Our Q without our signature: finalize would write the same key again and the output would not parse
+    if chosen.is_some() && !finalized {
+        let own: &[u8] = if is_tap { &in_.spk.bytes[2..34] } else { bip32.pubkey.unwrap_or(&[]) };
+        for i in 0..n {
+            let k = entries(i).key;
+            if k.len() == EXFIL_KEY.len() + 1 + own.len() && k[..EXFIL_KEY.len()] == EXFIL_KEY
+                && k[EXFIL_KEY.len()] == 2 && &k[EXFIL_KEY.len() + 1..] == own
+            {
+                return Err(Err::Duplicate);
+            }
+        }
+    }
 
     match chosen {
         Some(c) if !finalized => {

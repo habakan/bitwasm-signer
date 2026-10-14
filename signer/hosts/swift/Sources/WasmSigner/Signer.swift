@@ -318,9 +318,10 @@ public final class Signer {
         return out
     }
 
-    /// For a seed you already have. 64 bytes.
+    /// For a seed you already have. 64 bytes, zeroed here like the mnemonic.
     @discardableResult
-    public func loadSeed(_ seed: [UInt8]) throws -> Signer {
+    public func loadSeed(_ seed: inout [UInt8]) throws -> Signer {
+        defer { for i in seed.indices { seed[i] = 0 } }
         guard seed.count == 64 else { throw SignerError.tooLarge(size: seed.count, capacity: 64) }
         try write(seed, at: Int(try call("signer_input")))
         guard try call("signer_load_seed") == 1 else {

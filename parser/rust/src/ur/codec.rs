@@ -72,8 +72,9 @@ impl Rng {
         self.next() as f64 / 18446744073709551616.0
     }
 
+    /// `next_double()` rounds to exactly 1.0 for the top 2^10 values of `next()`, so the result is capped.
     pub fn next_int(&mut self, low: u64, high: u64) -> u64 {
-        (self.next_double() * (high - low + 1) as f64) as u64 + low
+        core::cmp::min((self.next_double() * (high - low + 1) as f64) as u64 + low, high)
     }
 }
 
@@ -212,7 +213,8 @@ impl Sampler {
     pub fn next(&self, r: &mut Rng) -> usize {
         let r1 = r.next_double();
         let r2 = r.next_double();
-        let i = (self.n as f64 * r1) as usize;
+        // r1 can be exactly 1.0, as in next_int()
+        let i = core::cmp::min((self.n as f64 * r1) as usize, self.n - 1);
         if r2 < self.probs[i] {
             i
         } else {

@@ -21,7 +21,7 @@ pub const MAX_SEQ_LEN: usize = 1024;
 pub const MAX_MIXED: usize = 64;
 /// Bytes shared by the kept mixed parts.
 pub const MIXED_POOL: usize = 16384;
-/// The largest fragment the encoder will produce.
+/// The largest fragment the encoder will produce, and the decoder will accept.
 pub const MAX_FRAGMENT: usize = 1000;
 
 pub const BITS_BYTES: usize = MAX_SEQ_LEN / 8;

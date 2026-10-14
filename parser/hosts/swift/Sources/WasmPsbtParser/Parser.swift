@@ -87,10 +87,25 @@ public struct Plan {
     public let txVersion: Int32, locktime: UInt32
     public let inputs: [PlanInput], outputs: [PlanOutput]
 
-    public var totalIn: UInt64 { inputs.reduce(0) { $0 + $1.amount } }
-    public var totalOut: UInt64 { outputs.reduce(0) { $0 + $1.amount } }
-    /// Derived from amounts that are claims until each input's prevtx is checked.
-    public var fee: UInt64 { totalIn - totalOut }
+    /// nil when the total overflows: the module passes amounts through without checking them.
+    public var totalIn: UInt64? { Plan.sum(inputs.map { $0.amount }) }
+    public var totalOut: UInt64? { Plan.sum(outputs.map { $0.amount }) }
+    /// Derived from amounts that are claims until each input's prevtx is checked. nil when the outputs
+    /// exceed the inputs or a total overflows.
+    public var fee: UInt64? {
+        guard let i = totalIn, let o = totalOut, i >= o else { return nil }
+        return i - o
+    }
+
+    private static func sum(_ amounts: [UInt64]) -> UInt64? {
+        var s: UInt64 = 0
+        for a in amounts {
+            let (r, overflow) = s.addingReportingOverflow(a)
+            if overflow { return nil }
+            s = r
+        }
+        return s
+    }
 }
 
 /// A signature for `finalize`.

@@ -1,8 +1,8 @@
 # parser.wasm, in Rust
 
 The parser is being moved from C to Rust. The C in `../src` is the reference until that is finished,
-and `make check-rust-agrees` requires the two to give identical answers on every vector and on
-50,000 fuzzed inputs. **A port checked only against its own tests is a port whose bugs become its
+and `make check-rust` requires the two to give identical answers on every vector and on
+20,000 mutated PSBTs. **A port checked only against its own tests is a port whose bugs become its
 tests**, which is why the comparison exists rather than a second set of expectations.
 
 ## Why

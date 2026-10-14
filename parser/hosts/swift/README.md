@@ -25,7 +25,7 @@ let parser = try Parser(parserWasm: parserWasmBytes)      // once
 let plan = try parser.parse(psbt, fingerprint: 0x73c5da0a) // per transaction
 let rawPlan = try parser.rawPlan()                        // 6,712-byte plan_t for a matching signer.wasm
 
-print("\(plan.inputs.count) in / \(plan.outputs.count) out, fee \(plan.fee)")
+print("\(plan.inputs.count) in / \(plan.outputs.count) out, fee \(plan.fee.map(String.init) ?? "-")")
 for out in plan.outputs {
     print(out.amount, out.key.map { "claimed as \($0)" } ?? "")
 }
@@ -49,8 +49,9 @@ Add it to your own package:
 
 `key` is a `KeyOrigin?` — BIP380's name for this. It prints as `73c5da0a/84h/0h/0h/0/0`.
 **It is a claim**: the module read it out of the PSBT. Derive the key yourself and check it produces
-`spk` before you call an output change, or an input yours. `plan.fee` is `totalIn - totalOut`, and
-those amounts are claims too until each input's `prevtx` is checked against its `prevTxid`.
+`spk` before you call an output change, or an input yours. `plan.fee` is `totalIn - totalOut`, or nil
+when that is negative or overflows, and those amounts are claims too until each input's `prevtx` is
+checked against its `prevTxid`.
 
 Anything the module rejects throws a `ParserError` that prints as `P_ERR_MAGIC`, `UR_ERR_BYTEWORDS`
 and so on. `ParserError.outOfBounds` means the module returned an offset outside its own memory —

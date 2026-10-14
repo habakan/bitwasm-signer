@@ -25,4 +25,4 @@ for (i, x) in plan.outputs.enumerated() {
     print("  out \(i)  \(btc(x.amount))  \(hex(x.spk))\(mine)")
 }
 // The fee is computed from amounts that are claims until each prevtx is checked
-print("  fee     \(btc(plan.fee))")
+print("  fee     \(plan.fee.map(btc) ?? "-")")

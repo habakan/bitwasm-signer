@@ -7,11 +7,16 @@ on:
   workflow_dispatch:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
@@ -37,6 +42,7 @@ jobs:
           W=1.261.0
           curl -sL -o /tmp/wt.tar.gz \
             https://github.com/bytecodealliance/wasm-tools/releases/download/v$W/wasm-tools-$W-x86_64-linux.tar.gz
+          echo "ad62b2176037e93e1348cb65d6212d128ca9f097b63d155569f25215818ff7b1  /tmp/wt.tar.gz" | sha256sum -c -
           tar xzf /tmp/wt.tar.gz -C /tmp
           sudo install /tmp/wasm-tools-$W-x86_64-linux/wasm-tools /usr/local/bin/
           K=2.4.20
@@ -84,6 +90,11 @@ jobs:
             LLVM=$SDK/bin WASI=$SDK/share/wasi-sysroot \
             RTLIB=$SDK/lib/clang/23/lib/wasm32-unknown-wasi \
             WASM_OPT=/tmp/binaryen-version_132/bin/wasm-opt
+
+      - name: The Rust parser agrees with the C on every vector and on mutated PSBTs
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
+          make check-rust WASM_OPT=/tmp/binaryen-version_132/bin/wasm-opt
 
       - name: Both modules under WAMR's classic interpreter, the signer agreeing with V8
         run: |
