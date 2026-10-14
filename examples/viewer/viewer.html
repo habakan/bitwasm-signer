@@ -8,7 +8,7 @@
 <title>PSBT viewer</title>
 <style>
   :root { color-scheme: dark; --bg:#13151a; --fg:#e8e8e8; --dim:#8b93a1; --line:#2a2e37;
-          --send:#ff6e50; --ours:#5adc78; --title:#ffaa00; }
+          --send:#ff6e50; --title:#ffaa00; }
   * { box-sizing: border-box; }
   body { margin:0; padding:16px; background:var(--bg); color:var(--fg);
          font:14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -25,7 +25,6 @@
   .card { border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:12px 0; }
   .row { display:flex; justify-content:space-between; gap:12px; }
   .amount { color:var(--send); font-weight:600; }
-  .mine .amount { color:var(--ours); }
   .addr { word-break:break-all; color:var(--fg); font-size:13px; }
   .k { color:var(--dim); }
   .err { color:var(--send); }
@@ -98,11 +97,11 @@ function toAddress(spk, testnet) {
 function render(plan, testnet) {
   const parts = plan.outputs.map((o, i) => {
     const addr = toAddress(o.spk, testnet);
-    return `<div class="card ${o.key ? "mine" : ""}">
-      <div class="row"><span class="k">output ${i + 1}/${plan.outputs.length}${o.key ? " (our key)" : ""}</span>
+    // o.key is never shown: parsed with fingerprint 0, it is only a PSBT that claims 00000000
+    return `<div class="card">
+      <div class="row"><span class="k">output ${i + 1}/${plan.outputs.length}</span>
         <span class="amount">${btc(o.amount)} BTC</span></div>
       <div class="addr">${addr || hex(o.spk)}</div>
-      ${o.key ? `<div class="k">m/${o.key.path.map(v => (v & 0x80000000 ? `${v & 0x7fffffff}'` : v)).join("/")}  fp ${o.key.fingerprint.toString(16).padStart(8, "0")}</div>` : ""}
     </div>`;
   });
 
