@@ -55,7 +55,8 @@ void ur_decoder_progress(unsigned int *expected, unsigned int *received);
 
 /* Encoder for a message that is a CBOR byte string holding data (as for crypto-psbt) or, without wrap, data
  * that is CBOR already; built on the fly from data without copying. Parts follow the reference encoder:
- * seq_num 1..seq_len are the pure fragments, later ones are mixed. Fragments are at most UR_MAX_FRAGMENT bytes */
+ * seq_num 1..seq_len are the pure fragments, later ones are mixed. Fragments are at most UR_MAX_FRAGMENT bytes,
+ * and the decoder refuses a longer one with UR_ERR_LIMIT */
 #define UR_MAX_FRAGMENT 1000
 
 size_t ur_nominal_fragment_len(size_t message_len, size_t min_len, size_t max_len);

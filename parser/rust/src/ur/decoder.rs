@@ -310,11 +310,11 @@ impl Decoder {
             return Err(Err::Part);
         }
         let seq_len = seq_len as usize;
-        if seq_len > MAX_SEQ_LEN || seq_len * frag_len > self.work_cap {
+        if seq_len > MAX_SEQ_LEN || frag_len > super::MAX_FRAGMENT || seq_len * frag_len > self.work_cap {
             return Err(Err::Limit);
         }
         // The encoder splits into ceil(message_len / frag_len) fragments; anything else is a lie
-        if message_len == 0 || (message_len + frag_len - 1) / frag_len != seq_len {
+        if message_len == 0 || message_len.div_ceil(frag_len) != seq_len {
             return Err(Err::Part);
         }
         if !self.multipart {
