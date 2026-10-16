@@ -8,6 +8,7 @@
 #include <string.h>
 #include "bip39_words.h"
 #include "sha256.h"
+#include "sha512.h"
 #include "wipe.h"
 
 static void sha256_of(const uint8_t *p, size_t n, uint8_t out[32]) {
@@ -77,6 +78,33 @@ static int word_index(const uint8_t *w, size_t len) {
     return found;
 }
 
+size_t bip39_word_prefix(const uint8_t *prefix, size_t len, char out[][BIP39_WORD_MAX + 1], size_t cap, int *exact) {
+    size_t found = 0, written = 0;
+    int lo = 0, hi = 2048;
+
+    if (exact) *exact = 0;
+    if (len > BIP39_WORD_MAX || (len && !prefix)) return 0;
+    for (size_t i = 0; i < len; i++)
+        if (prefix[i] < 'a' || prefix[i] > 'z') return 0;
+    while (lo < hi) {
+        int mid = (lo + hi) / 2, cmp = len ? memcmp(bip39_words[mid], prefix, len) : 0;
+        if (cmp < 0) lo = mid + 1;
+        else hi = mid;
+    }
+    while (lo < 2048 && (!len || !memcmp(bip39_words[lo], prefix, len))) {
+        size_t word_len = strnlen(bip39_words[lo], BIP39_WORD_MAX);
+        if (word_len == len && exact) *exact = 1;
+        if (out && written < cap) {
+            memcpy(out[written], bip39_words[lo], word_len);
+            out[written][word_len] = 0;
+            written++;
+        }
+        found++;
+        lo++;
+    }
+    return found;
+}
+
 size_t bip39_normalize(const uint8_t *in, size_t len, uint8_t *out) {
     size_t n = 0;
     int gap = 0;
@@ -111,6 +139,24 @@ int bip39_mnemonic_ok(const uint8_t *mn, size_t len) {
     int ok = parse_mnemonic(mn, len, idx) != 0;
     wipe(idx, sizeof(idx));
     return ok;
+}
+
+int bip39_seed_from_mnemonic(const uint8_t *mn, size_t mn_len, const uint8_t *passphrase, size_t passphrase_len,
+                             uint8_t seed[64]) {
+    uint8_t salt[8 + BIP39_PASSPHRASE_MAX];
+
+    if (!seed) return 0;
+    wipe(seed, 64);
+    if (!mn || passphrase_len > BIP39_PASSPHRASE_MAX || (passphrase_len && !passphrase) ||
+        !bip39_mnemonic_ok(mn, mn_len))
+        return 0;
+    for (size_t i = 0; i < passphrase_len; i++)
+        if (passphrase[i] < 0x20 || passphrase[i] > 0x7e) return 0;
+    memcpy(salt, "mnemonic", 8);
+    if (passphrase_len) memcpy(salt + 8, passphrase, passphrase_len);
+    pbkdf2_hmac_sha512(mn, mn_len, salt, 8 + passphrase_len, 2048, seed);
+    wipe(salt, sizeof(salt));
+    return 1;
 }
 
 int seedqr_encode(const uint8_t *mn, size_t len, int compact, uint8_t *out, size_t cap) {

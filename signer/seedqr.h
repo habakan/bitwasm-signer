@@ -6,6 +6,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define BIP39_WORD_MAX 8
+#define BIP39_PASSPHRASE_MAX 64
+
 /* Accepts a standard SeedQR (four digits per word, 12 or 24 words) or a CompactSeedQR (16 or 32 bytes
  * of entropy). Returns the mnemonic's length and writes it NUL-terminated to out, or 0 if the BIP39
  * checksum does not hold */
@@ -14,6 +17,13 @@ int seedqr_decode(const uint8_t *payload, size_t len, char *out, size_t cap);
 /* 1 if mn is 12, 15, 18, 21 or 24 English BIP39 words, lower case, one space apart, whose checksum
  * holds. Other wordlists are refused, so a typo cannot pass as a mnemonic in another language */
 int bip39_mnemonic_ok(const uint8_t *mn, size_t len);
+
+/* Returns the prefix match count and writes up to cap candidates; exact is set when the prefix is a full word. */
+size_t bip39_word_prefix(const uint8_t *prefix, size_t len, char out[][BIP39_WORD_MAX + 1], size_t cap, int *exact);
+
+/* Derives a BIP39 seed from a valid English mnemonic and a printable ASCII passphrase of at most 64 bytes. */
+int bip39_seed_from_mnemonic(const uint8_t *mn, size_t mn_len, const uint8_t *passphrase, size_t passphrase_len,
+                             uint8_t seed[64]);
 
 /* Leading, trailing and repeated whitespace dropped and A-Z lowered, as keyboards add them. Writes at
  * most len bytes to out, which may be in, and returns how many */
