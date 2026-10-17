@@ -36,7 +36,7 @@ WAMR_NODE_LINK := -shared -fPIC
 endif
 
 SIGNER_SRC := signer/wasm_main.c signer/core.c signer/address.c signer/bip32.c signer/sighash.c \
-  signer/seedqr.c signer/bip85.c signer/multisig.c signer/cbor.c signer/ripemd160.c signer/sha512.c signer/secp_callbacks.c \
+  signer/bip39.c signer/seedqr.c signer/bip85.c signer/multisig.c signer/cbor.c signer/ripemd160.c signer/sha512.c signer/secp_callbacks.c \
   signer/secp256k1_unity.c signer/multisig_cbor.c \
   parser/c/src/tx.c parser/c/src/sha256.c
 PARSER_C_SRC := $(wildcard parser/c/src/*.c)

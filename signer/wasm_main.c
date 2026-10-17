@@ -3,6 +3,7 @@
  * to the host, laid out the way parser.wasm's ABI is */
 #include <string.h>
 #include "core.h"
+#include "bip39.h"
 #include "seedqr.h"
 #include "sha512.h"
 #include "wipe.h"
@@ -21,6 +22,9 @@
  *   sign                                  the number of signatures, or -CORE_ERR_*
  *   find_address                          chain << 20 | index, or -CORE_ERR_*
  *   account_cbor / multisig_cbor          the CBOR's length, or -CORE_ERR_*
+ *   word_letters                          a bitmask of letters, bit i for 'a' + i
+ *   word_matches                          exact << 12 | the number of matches
+ *   final_words                           the number of final words, or 0
  * Buffer accessors return a pointer, fingerprint returns the value, unload returns nothing. */
 
 /* Where the host writes. All static: this module never allocates */
@@ -42,6 +46,9 @@ static core_message_t message;
 static uint8_t message_sig[65];
 static core_multisig_t multisig;
 static uint8_t cbor[1024]; /* a crypto-account or crypto-output, for parser_ur_encode_cbor() */
+/* Word indices from the word entry helpers. The final words follow from the words before them, so they
+ * are wiped like a mnemonic; filter is the list a host passed in to choose from */
+static uint16_t words_out[2048], filter[(sizeof(in) - BIP39_WORD_MAX) / 2];
 
 unsigned char *EXPORT(signer_input)(void) {
     return in;
@@ -94,6 +101,9 @@ core_multisig_t *EXPORT(signer_multisig_output)(void) {
 }
 unsigned char *EXPORT(signer_cbor_output)(void) {
     return cbor;
+}
+uint16_t *EXPORT(signer_words_output)(void) {
+    return words_out;
 }
 
 int EXPORT(signer_init)(int testnet) {
@@ -158,6 +168,7 @@ void EXPORT(signer_unload)(void) {
     wipe(message_sig, sizeof(message_sig));
     wipe(&multisig, sizeof(multisig));
     wipe(cbor, sizeof(cbor));
+    wipe(words_out, sizeof(words_out));
 }
 
 unsigned int EXPORT(signer_fingerprint)(void) {
@@ -284,4 +295,47 @@ int EXPORT(signer_multisig_cbor)(void) {
     int n = core_multisig_cbor(cbor, sizeof(cbor));
     if (n < 0) wipe(cbor, sizeof(cbor));
     return n;
+}
+
+/* Word entry. in holds the typed letters, then filter_count word indices as little-endian uint16 to
+ * choose from (the final words, say) or none for the whole wordlist */
+static const uint16_t *read_filter(unsigned int prefix_len, unsigned int filter_count) {
+    if (prefix_len > BIP39_WORD_MAX || filter_count > sizeof(filter) / 2) return NULL;
+    for (unsigned int i = 0; i < filter_count; i++)
+        filter[i] = (uint16_t)(in[prefix_len + 2 * i] | in[prefix_len + 2 * i + 1] << 8);
+    return filter;
+}
+
+unsigned int EXPORT(signer_word_letters)(unsigned int prefix_len, unsigned int filter_count) {
+    const uint16_t *f = read_filter(prefix_len, filter_count);
+    uint32_t mask = f ? bip39_next_letters(in, prefix_len, filter_count ? f : NULL, filter_count) : 0;
+    wipe(in, sizeof(in));
+    wipe(filter, sizeof(filter));
+    return mask;
+}
+
+/* The matching indices go to signer_words_output() */
+int EXPORT(signer_word_matches)(unsigned int prefix_len, unsigned int filter_count) {
+    const uint16_t *f = read_filter(prefix_len, filter_count);
+    int exact = 0;
+    size_t n = 0;
+    wipe(words_out, sizeof(words_out));
+    if (f) n = bip39_word_matches(in, prefix_len, filter_count ? f : NULL, filter_count, words_out, 2048, &exact);
+    wipe(in, sizeof(in));
+    wipe(filter, sizeof(filter));
+    return exact << 12 | (int)n;
+}
+
+/* in holds the first words - 1 indices as little-endian uint16; the final words go to signer_words_output() */
+int EXPORT(signer_final_words)(unsigned int words) {
+    uint16_t idx[24];
+    size_t n = 0;
+    wipe(words_out, sizeof(words_out));
+    if (words >= 12 && words <= 24) {
+        for (unsigned int i = 0; i + 1 < words; i++) idx[i] = (uint16_t)(in[2 * i] | in[2 * i + 1] << 8);
+        n = bip39_final_words(idx, words, words_out, 2048);
+    }
+    wipe(idx, sizeof(idx));
+    wipe(in, sizeof(in));
+    return (int)n;
 }

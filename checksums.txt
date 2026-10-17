@@ -1,2 +1,2 @@
 9407abe3a65a56ebcfcab6da3b685f4e21ce9f6a60b3feddd299ddc0def89bab  build/parser.wasm
-5bc57026de4e2321035183103a16d0308b0e5396fb0b6378bcd6b44dd837d2fa  build/signer.wasm
+98bb4b5aa9a5071dc832b209cfbd1944363f8c1bc6d8f20bfa0c374b7f884450  build/signer.wasm

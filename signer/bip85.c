@@ -1,5 +1,5 @@
 #include "bip85.h"
-#include "seedqr.h"
+#include "bip39.h"
 #include "sha512.h"
 #include "wipe.h"
 
