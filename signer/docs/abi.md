@@ -154,8 +154,9 @@ for P2SH-P2WPKH, 39-42 for P2WPKH), then r and s; most wallets take it in base64
 transaction, one review permits one signature, and the module signs only the message and key it
 hashed at review time, so a message or key swapped in afterwards is refused. Like the plan's, that hash
 is in memory the host can write: it binds review to signing, it does not defend against the host. A
-message is shown as it is only when every byte is printable ASCII; anything else, a newline or UTF-8
-included, is shown in hex, since such bytes could render as something other than what is signed.
+message is shown as it is only when every byte is printable ASCII, with no space at either end and
+never two in a row; anything else, a newline or UTF-8 included, is shown in hex, since such bytes could
+render as something other than what is signed and spaces at the ends or in runs cannot be counted.
 
 The key is chosen by integers, not by the `signmessage m/84h/... ascii:...` text QR codes carry:
 reading that text is the host's, and the module checks the path it is given. The nonce is RFC6979

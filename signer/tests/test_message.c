@@ -84,6 +84,11 @@ int main(void) {
               !strcmp(m.text, "6c696e650a627265616b"),
           "anything but printable ASCII is shown in hex");
     CHECK(review("caf\xc3\xa9", 5, 84, 0, 0, &m) == CORE_OK && m.text_kind == CORE_TEXT_HEX, "UTF-8 too");
+    CHECK(review("a ", 2, 84, 0, 0, &m) == CORE_OK && m.text_kind == CORE_TEXT_HEX && !strcmp(m.text, "6120"),
+          "a trailing space is shown in hex");
+    CHECK(review(" a", 2, 84, 0, 0, &m) == CORE_OK && m.text_kind == CORE_TEXT_HEX, "a leading space too");
+    CHECK(review("a  b", 4, 84, 0, 0, &m) == CORE_OK && m.text_kind == CORE_TEXT_HEX, "two spaces in a row too");
+    CHECK(review("a b c", 5, 84, 0, 0, &m) == CORE_OK && m.text_kind == CORE_TEXT_MESSAGE, "single spaces are text");
 
     memset(big, 'a', sizeof(big));
     CHECK(review(big, 512, 84, 0, 0, &m) == CORE_OK, "512 bytes");

@@ -597,7 +597,10 @@ int core_message_review(const uint8_t *m, size_t len, unsigned int purpose, uint
     if (!address_encode(spk, wpkh_spk(pub, purpose == 49, spk), network == CORE_TESTNET, out->address))
         return CORE_ERR_CRYPTO;
 
-    for (size_t i = 0; i < len; i++) printable &= m[i] >= 0x20 && m[i] <= 0x7e;
+    /* Spaces at either end or two in a row cannot be counted on screen, so those messages go to hex too */
+    for (size_t i = 0; i < len; i++)
+        printable &= m[i] >= 0x20 && m[i] <= 0x7e && !(i && m[i] == ' ' && m[i - 1] == ' ');
+    if (len && (m[0] == ' ' || m[len - 1] == ' ')) printable = 0;
     out->text_kind = printable ? CORE_TEXT_MESSAGE : CORE_TEXT_HEX;
     if (printable) memcpy(out->text, m, len), out->text[len] = 0;
     else to_hex(m, len, out->text);
