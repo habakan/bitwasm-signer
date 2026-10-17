@@ -93,6 +93,10 @@ static size_t prefix_range(const uint8_t *prefix, size_t len, unsigned int *firs
     return end - lo;
 }
 
+const char *bip39_wordlist(void) {
+    return bip39_words[0];
+}
+
 size_t bip39_word_prefix(const uint8_t *prefix, size_t len, char out[][BIP39_WORD_MAX + 1], size_t cap, int *exact) {
     unsigned int first = 0;
     size_t found;

@@ -105,6 +105,9 @@ unsigned char *EXPORT(signer_cbor_output)(void) {
 uint16_t *EXPORT(signer_words_output)(void) {
     return words_out;
 }
+const char *EXPORT(signer_wordlist)(void) {
+    return bip39_wordlist();
+}
 
 int EXPORT(signer_init)(int testnet) {
     memset(prevtx, 0, sizeof(prevtx));
