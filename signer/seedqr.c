@@ -78,31 +78,75 @@ static int word_index(const uint8_t *w, size_t len) {
     return found;
 }
 
-size_t bip39_word_prefix(const uint8_t *prefix, size_t len, char out[][BIP39_WORD_MAX + 1], size_t cap, int *exact) {
-    size_t found = 0, written = 0;
-    int lo = 0, hi = 2048;
-
-    if (exact) *exact = 0;
+static int prefix_ok(const uint8_t *prefix, size_t len) {
     if (len > BIP39_WORD_MAX || (len && !prefix)) return 0;
     for (size_t i = 0; i < len; i++)
         if (prefix[i] < 'a' || prefix[i] > 'z') return 0;
+    return 1;
+}
+
+/* The words starting with prefix are a run in the sorted list: its first index, and its length */
+static size_t prefix_range(const uint8_t *prefix, size_t len, unsigned int *first) {
+    unsigned int lo = 0, hi = 2048, end;
     while (lo < hi) {
-        int mid = (lo + hi) / 2, cmp = len ? memcmp(bip39_words[mid], prefix, len) : 0;
-        if (cmp < 0) lo = mid + 1;
+        unsigned int mid = (lo + hi) / 2;
+        if (len && memcmp(bip39_words[mid], prefix, len) < 0) lo = mid + 1;
         else hi = mid;
     }
-    while (lo < 2048 && (!len || !memcmp(bip39_words[lo], prefix, len))) {
-        size_t word_len = strnlen(bip39_words[lo], BIP39_WORD_MAX);
+    for (end = lo; end < 2048 && (!len || !memcmp(bip39_words[end], prefix, len)); end++) continue;
+    *first = lo;
+    return end - lo;
+}
+
+size_t bip39_word_prefix(const uint8_t *prefix, size_t len, char out[][BIP39_WORD_MAX + 1], size_t cap, int *exact) {
+    unsigned int first = 0;
+    size_t found;
+
+    if (exact) *exact = 0;
+    if (!prefix_ok(prefix, len)) return 0;
+    found = prefix_range(prefix, len, &first);
+    for (size_t i = 0; i < found; i++) {
+        size_t word_len = strnlen(bip39_words[first + i], BIP39_WORD_MAX);
         if (word_len == len && exact) *exact = 1;
-        if (out && written < cap) {
-            memcpy(out[written], bip39_words[lo], word_len);
-            out[written][word_len] = 0;
-            written++;
+        if (out && i < cap) {
+            memcpy(out[i], bip39_words[first + i], word_len);
+            out[i][word_len] = 0;
         }
-        found++;
-        lo++;
     }
     return found;
+}
+
+size_t bip39_word_matches(const uint8_t *prefix, size_t len, const uint16_t *filter, size_t filter_len, uint16_t *out,
+                          size_t cap, int *exact) {
+    unsigned int first = 0;
+    size_t found = 0, n;
+
+    if (exact) *exact = 0;
+    if (!prefix_ok(prefix, len)) return 0;
+    n = filter ? filter_len : prefix_range(prefix, len, &first);
+    for (size_t i = 0; i < n; i++) {
+        unsigned int w = filter ? filter[i] : first + (unsigned int)i;
+        if (w > 2047 || (len && memcmp(bip39_words[w], prefix, len))) continue;
+        if (exact && strnlen(bip39_words[w], BIP39_WORD_MAX) == len) *exact = 1;
+        if (out && found < cap) out[found] = (uint16_t)w;
+        found++;
+    }
+    return found;
+}
+
+uint32_t bip39_next_letters(const uint8_t *prefix, size_t len, const uint16_t *filter, size_t filter_len) {
+    unsigned int first = 0;
+    uint32_t mask = 0;
+    size_t n;
+
+    if (!prefix_ok(prefix, len) || len >= BIP39_WORD_MAX) return 0;
+    n = filter ? filter_len : prefix_range(prefix, len, &first);
+    for (size_t i = 0; i < n; i++) {
+        unsigned int w = filter ? filter[i] : first + (unsigned int)i;
+        if (w > 2047 || (len && memcmp(bip39_words[w], prefix, len)) || !bip39_words[w][len]) continue;
+        mask |= 1u << (bip39_words[w][len] - 'a');
+    }
+    return mask;
 }
 
 size_t bip39_normalize(const uint8_t *in, size_t len, uint8_t *out) {
@@ -241,4 +285,26 @@ int bip39_mnemonic_from_dice(const uint8_t *rolls, size_t len, unsigned int word
     r = bip39_mnemonic_from_entropy(hash, words == 12 ? 16 : 32, out, cap);
     wipe(hash, sizeof(hash));
     return r;
+}
+
+/* Every value of the last word's entropy bits, each with the checksum it needs */
+size_t bip39_final_words(const uint16_t *idx, size_t words, uint16_t *out, size_t cap) {
+    uint16_t all[24];
+    uint8_t ent[32], hash[32];
+    unsigned int cs_bits = (unsigned int)words / 3, n = 1u << (11 - cs_bits);
+
+    if (!idx || !out || words < 12 || words > 24 || words % 3 || cap < n) return 0;
+    for (size_t i = 0; i + 1 < words; i++) {
+        if (idx[i] > 2047) return wipe(all, sizeof(all)), 0;
+        all[i] = idx[i];
+    }
+    for (unsigned int e = 0; e < n; e++) {
+        all[words - 1] = (uint16_t)(e << cs_bits);
+        sha256_of(ent, indices_entropy(all, (unsigned int)words, ent), hash);
+        out[e] = (uint16_t)(e << cs_bits | (unsigned int)hash[0] >> (8 - cs_bits));
+    }
+    wipe(all, sizeof(all));
+    wipe(ent, sizeof(ent));
+    wipe(hash, sizeof(hash));
+    return n;
 }

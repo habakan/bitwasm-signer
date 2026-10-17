@@ -79,6 +79,7 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_message_sig() -> ptr` | the BIP137 signature, 65 bytes |
 | `signer_multisig_output() -> ptr` | `core_multisig_t`, 732 bytes: what to show before trusting a multisig |
 | `signer_cbor_output() -> ptr` | a crypto-account or crypto-output, CBOR, at most 1024 bytes |
+| `signer_words_output() -> ptr` | word indices from the word entry calls, little-endian uint16, at most 2048. The final words follow from the words typed before them: clear it once read |
 
 ### Operations
 
@@ -91,6 +92,9 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_mnemonic_from_entropy(len)` | the length of the new mnemonic, or 0. 16, 20, 24, 28 or 32 bytes of entropy give 12 to 24 words. Nothing is loaded |
 | `signer_mnemonic_from_dice(len, words)` | the same from dice rolls, the characters `1` to `6`: at least 50 for 12 words, 99 for 24. The entropy is SHA-256 of the rolls, the first 16 bytes for 12 words |
 | `signer_seedqr_from_mnemonic(mn_len, compact)` | the length of the SeedQR for the 12 or 24 word mnemonic in the input buffer, or 0: the Standard digits as ASCII (48 or 96, for QR numeric mode), or with `compact` the CompactSeedQR's 16 or 32 bytes (for byte mode) |
+| `signer_word_letters(prefix_len, filter_count)` | a bitmask, bit i set when the letter `'a' + i` follows the typed letters in some word, so a keyboard can disable the rest. The input buffer holds the letters (a-z, at most 8), then `filter_count` word indices as little-endian uint16 to choose from, or none for the whole wordlist |
+| `signer_word_matches(prefix_len, filter_count)` | `exact << 12 \| count`: how many words start with the letters, with their indices in `signer_words_output()` in wordlist order, and `exact` 1 when the letters are a word themselves (`act` before `action`). Input as for `signer_word_letters` |
+| `signer_final_words(words)` | how many last words complete the first `words - 1` indices in the input buffer (little-endian uint16) with a valid checksum, 128 for 12 words down to 8 for 24, written to `signer_words_output()`; or 0. Pass them as the filter above to type the last word |
 | `signer_bip85_mnemonic(words, index)` | the length of the loaded seed's BIP85 child mnemonic at m/83696968'/39'/0'/words'/index' in `signer_mnemonic_output()`, or 0. English; `words` is 12, 18 or 24 and `index` below 2^31 |
 | `signer_set_prevtx(i, off, len)` | 1 on success. `len` of 0 means that input has no previous transaction |
 | `signer_review()` | 0 on success, otherwise one of the errors below |

@@ -21,6 +21,23 @@ int bip39_mnemonic_ok(const uint8_t *mn, size_t len);
 /* Returns the prefix match count and writes up to cap candidates; exact is set when the prefix is a full word. */
 size_t bip39_word_prefix(const uint8_t *prefix, size_t len, char out[][BIP39_WORD_MAX + 1], size_t cap, int *exact);
 
+/* Word entry helpers, after Blockstream Jade's: a keyboard offers only letters that continue a word, and the
+ * last word can be limited to the ones whose checksum holds. filter, when not NULL, is the list of word
+ * indices to choose from (the final words, say) instead of the whole wordlist */
+
+/* The words starting with prefix as indices: returns how many, writes up to cap of them in order, and sets
+ * exact when prefix is itself a word */
+size_t bip39_word_matches(const uint8_t *prefix, size_t len, const uint16_t *filter, size_t filter_len, uint16_t *out,
+                          size_t cap, int *exact);
+
+/* Bit i is set when the letter 'a' + i follows prefix in some word, so a keyboard can disable the rest */
+uint32_t bip39_next_letters(const uint8_t *prefix, size_t len, const uint16_t *filter, size_t filter_len);
+
+/* The last words that complete the first words - 1 indices of a 12, 15, 18, 21 or 24 word mnemonic with a
+ * valid checksum: 128 for 12 words down to 8 for 24, in wordlist order. Returns how many, or 0 when the
+ * length is wrong, an index is out of range or cap is too small */
+size_t bip39_final_words(const uint16_t *idx, size_t words, uint16_t *out, size_t cap);
+
 /* Derives a BIP39 seed from a valid English mnemonic and a printable ASCII passphrase of at most 64 bytes. */
 int bip39_seed_from_mnemonic(const uint8_t *mn, size_t mn_len, const uint8_t *passphrase, size_t passphrase_len,
                              uint8_t seed[64]);

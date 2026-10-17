@@ -4,6 +4,7 @@
 #include "seedqr.h"
 #include "sha512.h"
 #include "bip39_vectors.h"
+#include "bip39_words.h"
 
 static int checks, failures;
 #define CHECK(cond, ...)                                                                                               \
@@ -23,6 +24,33 @@ static int ok(const char *mn) {
 
 static void to_hex(const uint8_t *in, char out[129]) {
     for (unsigned int i = 0; i < 64; i++) snprintf(out + 2 * i, 3, "%02x", in[i]);
+}
+
+static uint32_t letters(const char *s) {
+    uint32_t m = 0;
+    while (*s) m |= 1u << (*s++ - 'a');
+    return m;
+}
+
+/* A mnemonic's word indices, looked up through the prefix search */
+static size_t indices(const char *mn, uint16_t idx[24]) {
+    size_t n = 0;
+    for (const char *w = mn; *w && n < 24; n++) {
+        size_t len = strcspn(w, " ");
+        bip39_word_matches((const uint8_t *)w, len, NULL, 0, &idx[n], 1, NULL);
+        w += len + (w[len] == ' ');
+    }
+    return n;
+}
+
+/* Whether idx with its last word replaced by last passes the full mnemonic check */
+static int completes(const uint16_t *idx, size_t words, uint16_t last) {
+    char mn[256];
+    size_t len = 0;
+    for (size_t i = 0; i < words; i++)
+        len += (size_t)snprintf(mn + len, sizeof(mn) - len, "%s%.8s", i ? " " : "",
+                                bip39_words[i + 1 < words ? idx[i] : last]);
+    return bip39_mnemonic_ok((const uint8_t *)mn, len);
 }
 
 int main(void) {
@@ -87,6 +115,41 @@ int main(void) {
         CHECK(seed[0] == 0 && seed[63] == 0, "failed derivation clears the output");
     }
 
+    {
+        uint16_t idx[24], out[2048], filter[3];
+        int exact = 0;
+        CHECK(bip39_next_letters(NULL, 0, NULL, 0) == letters("abcdefghijklmnopqrstuvwyz"), "no word starts with x");
+        CHECK(bip39_next_letters((const uint8_t *)"wa", 2, NULL, 0) == letters("gilnrstvy"), "letters after wa");
+        CHECK(bip39_next_letters((const uint8_t *)"act", 3, NULL, 0) == letters("ioru"), "a word can still go on");
+        CHECK(bip39_next_letters((const uint8_t *)"zoo", 3, NULL, 0) == 0, "nothing follows the last word");
+        CHECK(bip39_next_letters((const uint8_t *)"aB", 2, NULL, 0) == 0, "only a-z is accepted");
+        CHECK(bip39_word_matches((const uint8_t *)"ab", 2, NULL, 0, out, 2048, &exact) == 10 && !exact &&
+                  !strncmp(bip39_words[out[0]], "abandon", 8) && !strncmp(bip39_words[out[9]], "abuse", 8),
+              "matches come as indices in wordlist order");
+        CHECK(bip39_word_matches((const uint8_t *)"act", 3, NULL, 0, out, 2, &exact) == 5 && exact,
+              "the count is not cut by cap, and act is a word");
+        filter[0] = out[0], filter[1] = out[1], filter[2] = 2048;
+        CHECK(bip39_word_matches((const uint8_t *)"acti", 4, filter, 3, out, 3, &exact) == 1 && !exact,
+              "a filter limits the matches and skips out-of-range entries");
+        CHECK(bip39_next_letters((const uint8_t *)"act", 3, filter, 3) == letters("i"), "a filter limits the letters");
+
+        size_t n = indices("legal winner thank year wave sausage worth useful legal winner thank yellow", idx);
+        size_t found = bip39_final_words(idx, n, out, 2048), all = 0, hit = 0;
+        for (size_t i = 0; i < found; i++) all += completes(idx, n, out[i]), hit |= out[i] == idx[n - 1];
+        CHECK(found == 128 && all == 128 && hit, "12 words: 128 final words, every one valid, the real one among them");
+        for (size_t i = 1; i < found; i++) CHECK(out[i - 1] < out[i], "final words in wordlist order");
+        n = indices("letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor "
+                    "acoustic avoid letter advice cage absurd amount doctor acoustic bless",
+                    idx);
+        found = bip39_final_words(idx, n, out, 2048), all = 0, hit = 0;
+        for (size_t i = 0; i < found; i++) all += completes(idx, n, out[i]), hit |= out[i] == idx[n - 1];
+        CHECK(n == 24 && found == 8 && all == 8 && hit,
+              "24 words: 8 final words, every one valid, the real one among them");
+        CHECK(!bip39_final_words(idx, 13, out, 2048), "13 words refused");
+        CHECK(!bip39_final_words(idx, 24, out, 7), "too small an output refused");
+        idx[0] = 2048;
+        CHECK(!bip39_final_words(idx, 24, out, 2048), "an index out of range refused");
+    }
     CHECK(!ok("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"),
           "bad checksum refused");
     CHECK(!ok("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abaut"),
