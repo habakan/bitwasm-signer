@@ -343,7 +343,8 @@ int core_facts(const plan_t *p, core_facts_t *f) {
         if (!o->key.depth || !keypath_ok(&o->key) || !script_ok(&o->spk)) continue;
         if (owns(&o->key, &o->spk, NULL, &node)) f->output[i] |= CORE_FACT_OURS;
         wipe(&node, sizeof(node));
-        if (f->wallet && spk_type(&o->spk) == SPK_P2WSH && in_wallet_at(&o->key, NULL, h) && !memcmp(h, o->spk.bytes + 2, 32))
+        if (f->wallet && spk_type(&o->spk) == SPK_P2WSH && in_wallet_at(&o->key, NULL, h) &&
+            !memcmp(h, o->spk.bytes + 2, 32))
             f->output[i] |= o->key.path[wallet.keys[wallet_ours].depth] ? CORE_FACT_CHANGE : CORE_FACT_RECEIVE;
     }
     return CORE_OK;
