@@ -26,8 +26,8 @@ inspect: it handles the keys and decides what to sign, and few users can review 
 **bitwasm-signer aims to make a signer easier to verify in two ways.**
 
 **No host imports; pinned build tools.** Both modules have zero imports. The build uses no package
-manager, and the toolchain is pinned by version and hash. `parser.wasm` is 15,632 bytes, built from
-four C files.
+manager, and the toolchain is pinned by version and hash. `parser.wasm` is built from four C
+files.
 
 > Pinning makes builds reproducible and identifies the dependencies. It does not make an unaudited
 > dependency safe; those dependencies still need review.

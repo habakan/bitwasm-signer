@@ -12,10 +12,10 @@ The module convention is in [module-abi.md](module-abi.md); how to drive each on
 Two modules, neither with a single import. No WASI, no JS polyfill, no clock, no allocator — nothing
 whose behaviour could differ with where the module was put.
 
-| | size | imports | what it does |
-|---|---:|---:|---|
-| `parser.wasm` | 15,854 B | 0 | UR reassembly, PSBT parsing, building the plan, taking signatures back, UR encoding |
-| `signer.wasm` | 82,117 B | 0 | BIP39 seed, new mnemonics, SeedQR, BIP85 children, BIP32 derivation, re-checking a plan, ECDSA and Schnorr signing, BIP137 messages, xpub export, finding our addresses |
+| | imports | what it does |
+|---|---:|---|
+| `parser.wasm` | 0 | UR reassembly, PSBT parsing, building the plan, taking signatures back, UR encoding |
+| `signer.wasm` | 0 | BIP39 seed, new mnemonics, SeedQR, BIP85 children, BIP32 derivation, re-checking a plan, ECDSA and Schnorr signing, BIP137 messages, xpub export, finding our addresses |
 
 <img src="everywhere.svg" alt="The same bytes run everywhere" width="940">
 

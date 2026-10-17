@@ -1,6 +1,6 @@
 # parser.wasm
 
-A PSBT v0 ([BIP174](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki)) parser, with animated-QR (UR) decoding and encoding, that compiles to a ~16 KB WebAssembly module with
+A PSBT v0 ([BIP174](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki)) parser, with animated-QR (UR) decoding and encoding, that compiles to a WebAssembly module with
 **no imports and no keys**.
 It turns an untrusted PSBT into a fixed-layout *plan* (`include/plan.h`) that a signer can check and sign,
 and inserts the signer's signatures back into the PSBT.
