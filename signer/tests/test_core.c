@@ -183,6 +183,7 @@ static void test_review_and_sign(void) {
     plan_t p, q;
 
     CHECK(core_review(&(plan_t){0}, NULL, &r) == CORE_ERR_NO_SEED, "no seed");
+    CHECK(core_facts(&(plan_t){0}, &(core_facts_t){0}) == CORE_ERR_NO_SEED, "no seed, no facts");
     CHECK(core_load_seed(TV_SEED) && core_fingerprint() == TV_FP, "fingerprint");
 
     /* one P2WPKH input, paying out plus change */
@@ -222,6 +223,12 @@ static void test_review_and_sign(void) {
     base_plan(&p);
     p.outputs[0].key = p.outputs[1].key;
     CHECK(core_review(&p, NULL, &r) == CORE_OK && r.owner[0] == CORE_OUT_EXTERNAL, "fake change is external");
+    {
+        core_facts_t f;
+        CHECK(core_facts(&p, &f) == CORE_OK && f.fingerprint == TV_FP && !f.testnet && !f.wallet &&
+                  f.input[0] == CORE_FACT_OURS && f.input[1] == 0 && f.output[0] == 0 && f.output[1] == CORE_FACT_OURS,
+              "facts: our input and change, not the output claiming its key");
+    }
 
     /* an output on the receive chain is ours, so nothing but the fee is actually spent */
     base_plan(&p);
