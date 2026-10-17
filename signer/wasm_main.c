@@ -18,7 +18,7 @@
 
 /* Three return conventions, and which one a function uses follows from what it does:
  *   init / seed / seedqr / load_seed / set_prevtx  1 on success, 0 on failure (they can only fail one way)
- *   review / display / xpub / message / multisig_load* CORE_OK (0) on success, CORE_ERR_* otherwise
+ *   review / display / facts / xpub / message / multisig_load* CORE_OK (0) on success, CORE_ERR_* otherwise
  *   sign                                  the number of signatures, or -CORE_ERR_*
  *   find_address                          chain << 20 | index, or -CORE_ERR_*
  *   account_cbor / multisig_cbor          the CBOR's length, or -CORE_ERR_*
@@ -32,6 +32,7 @@ static plan_t plan;
 static uint8_t prevtx_buf[PREVTX_MAX];
 static core_prevtx_t prevtx[PLAN_MAX_INPUTS];
 static core_review_t review;
+static core_facts_t facts;
 static core_display_t display;
 static core_sig_t sigs[PLAN_MAX_INPUTS];
 /* Anti-exfil, per input: 1 then the coordinator's n, as parser_nonces() lays it out; and Q for each of sigs[] */
@@ -68,6 +69,9 @@ core_review_t *EXPORT(signer_review_output)(void) {
 }
 core_display_t *EXPORT(signer_display_output)(void) {
     return &display;
+}
+core_facts_t *EXPORT(signer_facts_output)(void) {
+    return &facts;
 }
 unsigned char *EXPORT(signer_nonces)(void) {
     return nonces[0];
@@ -191,6 +195,9 @@ int EXPORT(signer_review)(void) {
 }
 int EXPORT(signer_display)(void) {
     return core_display(&plan, &review, &display);
+}
+int EXPORT(signer_facts)(void) {
+    return core_facts(&plan, &facts);
 }
 
 /* Sign and return how many. A negative result is -CORE_ERR_*. No rng is passed — that would mean an

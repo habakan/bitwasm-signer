@@ -34,6 +34,15 @@ int main(void) {
     F(core_review_t, n_sign);
     printf("  \"_end\": 0\n },\n");
 
+    printf(" \"core_facts_t\": {\n");
+    printf("  \"size\": %zu,\n", sizeof(core_facts_t));
+    F(core_facts_t, fingerprint);
+    F(core_facts_t, testnet);
+    F(core_facts_t, wallet);
+    F(core_facts_t, input);
+    F(core_facts_t, output);
+    printf("  \"_end\": 0\n },\n");
+
     printf(" \"core_display_t\": {\n");
     printf("  \"size\": %zu,\n", sizeof(core_display_t));
     F(core_display_t, fee);

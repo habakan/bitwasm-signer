@@ -9,6 +9,7 @@
 const L = {
   plan: { size: 6712, nInputs: 16, nOutputs: 17 },
   review: { size: 64, totalIn: 0, totalOut: 8, fee: 16, owner: 24, willSign: 40, nSign: 56 },
+  facts: { size: 40, fingerprint: 0, testnet: 4, wallet: 5, input: 6, output: 22 },
   display: {
     size: 2968, fee: 0, spend: 8, nOutputs: 16, outputs: 24,
     outSize: 184, outAmount: 0, outOwner: 8, outTextKind: 9, outText: 10, outTextCap: 167,
@@ -30,6 +31,7 @@ const L = {
  *   signer_prevtx: () => number,
  *   signer_review_output: () => number,
  *   signer_display_output: () => number,
+ *   signer_facts_output: () => number,
  *   signer_sigs: () => number,
  *   signer_nonces: () => number,
  *   signer_nonce_points: () => number,
@@ -44,6 +46,7 @@ const L = {
  *   signer_set_prevtx: (i: number, off: number, len: number) => number,
  *   signer_review: () => number,
  *   signer_display: () => number,
+ *   signer_facts: () => number,
  *   signer_sign: () => number,
  *   signer_xpub: (purpose: number, account: number) => number,
  *   signer_find_address: (len: number, account: number, count: number) => number,
@@ -84,6 +87,7 @@ const L = {
  *  @typedef {{ input: number, pubkey: Uint8Array, sig: Uint8Array, raw: Uint8Array }} Signature */
 
 export const OWNER = { EXTERNAL: 0, CHANGE: 1, SELF: 2 };
+export const FACT = { OURS: 1, IN_WALLET: 2, RECEIVE: 2, CHANGE: 4 };
 export const TEXT_KIND = { ADDRESS: 0, OP_RETURN: 1, SCRIPT: 2 };
 
 const NOT_FOUND = 12;
@@ -367,6 +371,24 @@ export class Signer {
       nSign: v.getUint8(r.nSign),
       owner: [...Array(L.limits.maxOutputs)].map((_, i) => v.getUint8(r.owner + i)),
       willSign: [...Array(L.limits.maxInputs)].map((_, i) => v.getUint8(r.willSign + i)),
+    };
+  }
+
+  /** What only the seed and the registered wallet know about the plan set last, for a review written
+   *  elsewhere to decide from. Each byte is FACT bits; `bytes` is the struct as the module laid it out. */
+  facts() {
+    const rc = this.#e.signer_facts();
+    if (rc !== 0) throw new SignerError("facts", rc);
+    const f = L.facts;
+    const v = this.#view(this.#e.signer_facts_output(), f.size);
+    const at = this.#e.signer_facts_output();
+    return {
+      fingerprint: v.getUint32(f.fingerprint, true),
+      testnet: v.getUint8(f.testnet) === 1,
+      wallet: v.getUint8(f.wallet) === 1,
+      input: [...this.#mem.subarray(at + f.input, at + f.input + L.limits.maxInputs)],
+      output: [...this.#mem.subarray(at + f.output, at + f.output + L.limits.maxOutputs)],
+      bytes: this.#mem.slice(at, at + f.size),
     };
   }
 

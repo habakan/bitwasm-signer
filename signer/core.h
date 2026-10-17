@@ -70,6 +70,17 @@ int core_load_seed(const uint8_t seed[64]);
 void core_unload(void);
 uint32_t core_fingerprint(void);
 int core_review(const plan_t *p, const core_prevtx_t prev[PLAN_MAX_INPUTS], core_review_t *r);
+/* What only the seed and the registered wallet know about a plan, for a review written elsewhere to decide
+ * from: OURS, the key re-derives to the script; IN_WALLET / RECEIVE / CHANGE, the wallet makes it there */
+enum { CORE_FACT_OURS = 1, CORE_FACT_IN_WALLET = 2, CORE_FACT_RECEIVE = 2, CORE_FACT_CHANGE = 4 };
+typedef struct {
+    uint32_t fingerprint;
+    uint8_t testnet, wallet; /* wallet: 1 if a multisig is registered */
+    uint8_t input[PLAN_MAX_INPUTS], output[PLAN_MAX_OUTPUTS];
+} core_facts_t;
+/* CORE_OK, or CORE_ERR_NO_SEED. Inputs and outputs past the plan's counts, or with a malformed key path,
+ * are left zero */
+int core_facts(const plan_t *p, core_facts_t *f);
 int core_display(const plan_t *p, const core_review_t *r, core_display_t *d);
 int core_sign(const plan_t *p, core_rng_t rng, core_sig_t sigs[PLAN_MAX_INPUTS], unsigned int *n_sigs);
 /* Anti-exfil: a coordinator's 32 random bytes for input i, used by the next core_sign() and then forgotten. That
