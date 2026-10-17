@@ -13,10 +13,10 @@ details for review, and signs the transaction. The parser has no keys; the signe
 <sub>**bitwasm-signer** — Bitcoin, WebAssembly, signer: one signer built once to WebAssembly, the same
 bytes on every runtime.</sub>
 
-| | bytes | imports | what it does |
-|---|---:|---:|---|
-| [`parser.wasm`](parser/README.md) | 15,854 | **0** | animated QR (UR) reassembly, PSBT v0 parsing, building a fixed-layout plan, taking signatures back, UR encoding |
-| [`signer.wasm`](signer/docs/abi.md) | 82,117 | **0** | keys, new mnemonics, SeedQR in and out, BIP85 children, BIP32 derivation, re-checking that plan, building what to display, sighash, signing, BIP137 messages, xpub export, finding our addresses |
+| | imports | what it does |
+|---|---:|---|
+| [`parser.wasm`](parser/README.md) | **0** | animated QR (UR) reassembly, PSBT v0 parsing, building a fixed-layout plan, taking signatures back, UR encoding |
+| [`signer.wasm`](signer/docs/abi.md) | **0** | keys, new mnemonics, SeedQR in and out, BIP85 children, BIP32 derivation, re-checking that plan, building what to display, sighash, signing, BIP137 messages, xpub export, finding our addresses |
 
 <img src="docs/everywhere.svg" alt="The same bytes run everywhere: bitwasm-signer at the centre, six places it has been run" width="940">
 

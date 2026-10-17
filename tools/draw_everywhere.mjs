@@ -20,7 +20,7 @@ const PLATFORMS = [
   ["Web viewer", "the browser's own engine", "parser.wasm · read-only", false, 210, "globe"],
 ];
 
-const MODULES = [["parser.wasm", "15,854 B"], ["signer.wasm", "82,117 B"]];
+const MODULES = ["parser.wasm", "signer.wasm"];
 const NAME = "bitwasm-signer";
 
 // Brand logos are trademarked, so each platform gets a shape that says what kind it is
@@ -97,10 +97,9 @@ s.push(`<text x="${CX}" y="${top + 94}" fill="${HUB_LINE}" font-size="20" text-a
        `letter-spacing="0.5">${NAME}</text>`);
 s.push(`<line x1="${CX - hw / 2 + 22}" y1="${top + 108}" x2="${CX + hw / 2 - 22}" y2="${top + 108}" ` +
        `stroke="${HUB_LINE}" stroke-width="1" opacity="0.3"/>`);
-MODULES.forEach(([n, sz], i) => {
+MODULES.forEach((n, i) => {
   const y = top + 132 + i * 24;
-  s.push(`<text x="${CX - hw / 2 + 22}" y="${y}" fill="${FG}" font-size="13.5">${n}</text>`);
-  s.push(`<text x="${CX + hw / 2 - 22}" y="${y}" fill="${DIM}" font-size="12.5" text-anchor="end">${sz}</text>`);
+  s.push(`<text x="${CX}" y="${y}" fill="${FG}" font-size="13.5" text-anchor="middle">${n}</text>`);
 });
 s.push(`<text x="${CX}" y="${CY + hh / 2 - 16}" fill="${DIM}" font-size="11.5" text-anchor="middle">` +
        `the same file, wherever it runs</text>`);
