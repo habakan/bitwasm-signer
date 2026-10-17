@@ -93,7 +93,7 @@ int core_find_address(const char *addr, size_t len, uint32_t account, uint32_t c
 #define CORE_XPUB_MAX 120
 #define CORE_DESC_MAX 180
 /* BIP137, purpose 49 or 84. Review shows the key's address and the message, in hex unless it is printable
- * ASCII, since other bytes could render as something else; sign then signs that message, once */
+ * ASCII with no space at either end or two in a row; sign then signs that message, once */
 #define CORE_MESSAGE_MAX 512
 enum { CORE_TEXT_MESSAGE = 0, CORE_TEXT_HEX };
 typedef struct {
