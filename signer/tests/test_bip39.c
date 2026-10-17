@@ -1,7 +1,7 @@
 /* Checking a typed mnemonic, against BIP39's reference vectors */
 #include <stdio.h>
 #include <string.h>
-#include "seedqr.h"
+#include "bip39.h"
 #include "sha512.h"
 #include "bip39_vectors.h"
 #include "bip39_words.h"

@@ -3,6 +3,7 @@
  * to the host, laid out the way parser.wasm's ABI is */
 #include <string.h>
 #include "core.h"
+#include "bip39.h"
 #include "seedqr.h"
 #include "sha512.h"
 #include "wipe.h"
