@@ -12,6 +12,9 @@
 int bip39_mnemonic_ok(const uint8_t *mn, size_t len);
 
 /* Returns the prefix match count and writes up to cap candidates; exact is set when the prefix is a full word. */
+/* The English wordlist in index order, eight bytes per word, NUL-padded */
+const char *bip39_wordlist(void);
+
 size_t bip39_word_prefix(const uint8_t *prefix, size_t len, char out[][BIP39_WORD_MAX + 1], size_t cap, int *exact);
 
 /* Word entry helpers, after Blockstream Jade's: a keyboard offers only letters that continue a word, and the

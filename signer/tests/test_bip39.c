@@ -115,6 +115,9 @@ int main(void) {
         CHECK(seed[0] == 0 && seed[63] == 0, "failed derivation clears the output");
     }
 
+    CHECK(!memcmp(bip39_wordlist(), bip39_words, sizeof(bip39_words)),
+          "the exported wordlist is the one checked against");
+
     {
         uint16_t idx[24], out[2048], filter[3];
         int exact = 0;

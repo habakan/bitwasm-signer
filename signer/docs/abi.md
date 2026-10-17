@@ -80,6 +80,7 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_multisig_output() -> ptr` | `core_multisig_t`, 732 bytes: what to show before trusting a multisig |
 | `signer_cbor_output() -> ptr` | a crypto-account or crypto-output, CBOR, at most 1024 bytes |
 | `signer_words_output() -> ptr` | word indices from the word entry calls, little-endian uint16, at most 2048. The final words follow from the words typed before them: clear it once read |
+| `signer_wordlist() -> ptr` | the English BIP39 wordlist the module checks against, 2048 x 8 bytes in index order, each word NUL-padded. Read-only: hosts show the words of the indices above from it |
 
 ### Operations
 
