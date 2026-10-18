@@ -322,6 +322,34 @@ int core_review(const plan_t *p, const core_prevtx_t prev[PLAN_MAX_INPUTS], core
     return CORE_OK;
 }
 
+int core_facts(const plan_t *p, core_facts_t *f) {
+    bip32_node_t node;
+    uint8_t h[32];
+    wipe(f, sizeof(*f));
+    if (!seed_loaded) return CORE_ERR_NO_SEED;
+    f->fingerprint = master_fp;
+    f->testnet = network == CORE_TESTNET;
+    f->wallet = wallet_ours >= 0;
+    for (unsigned int i = 0; i < p->n_inputs && i < PLAN_MAX_INPUTS; i++) {
+        const plan_input_t *in = &p->inputs[i];
+        if (!in->key.depth || !keypath_ok(&in->key) || !script_ok(&in->spk) || p->wscripts[i].len > PLAN_MAX_WSCRIPT)
+            continue;
+        if (owns(&in->key, &in->spk, &p->wscripts[i], &node)) f->input[i] |= CORE_FACT_OURS;
+        wipe(&node, sizeof(node));
+        if (f->wallet && in_wallet(&in->key, &p->wscripts[i])) f->input[i] |= CORE_FACT_IN_WALLET;
+    }
+    for (unsigned int i = 0; i < p->n_outputs && i < PLAN_MAX_OUTPUTS; i++) {
+        const plan_output_t *o = &p->outputs[i];
+        if (!o->key.depth || !keypath_ok(&o->key) || !script_ok(&o->spk)) continue;
+        if (owns(&o->key, &o->spk, NULL, &node)) f->output[i] |= CORE_FACT_OURS;
+        wipe(&node, sizeof(node));
+        if (f->wallet && spk_type(&o->spk) == SPK_P2WSH && in_wallet_at(&o->key, NULL, h) &&
+            !memcmp(h, o->spk.bytes + 2, 32))
+            f->output[i] |= o->key.path[wallet.keys[wallet_ours].depth] ? CORE_FACT_CHANGE : CORE_FACT_RECEIVE;
+    }
+    return CORE_OK;
+}
+
 static void to_hex(const uint8_t *b, size_t n, char *out) {
     static const char hx[] = "0123456789abcdef";
     for (size_t i = 0; i < n; i++) out[2 * i] = hx[b[i] >> 4], out[2 * i + 1] = hx[b[i] & 15];

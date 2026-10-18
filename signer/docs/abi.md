@@ -68,6 +68,7 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_prevtx() -> ptr` | the `non_witness_utxo` bytes, laid out however you like within 32768 |
 | `signer_review_output() -> ptr` | `core_review_t`, 64 bytes |
 | `signer_display_output() -> ptr` | `core_display_t`, 2968 bytes |
+| `signer_facts_output() -> ptr` | `core_facts_t`, 40 bytes: see [Facts for a second review](#facts-for-a-second-review) |
 | `signer_sigs() -> ptr` | up to 16 x `plan_sig_t` of 108 bytes |
 | `signer_nonces() -> ptr` | anti-exfil, 16 x 33 bytes: per input `1` then the coordinator's `n`, copied from `parser_nonces()`. Used by the next `signer_sign()`, then cleared |
 | `signer_nonce_points() -> ptr` | anti-exfil, 16 x 33 bytes: `Q` for each signature, zero for one made without `n` |
@@ -100,6 +101,7 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_set_prevtx(i, off, len)` | 1 on success. `len` of 0 means that input has no previous transaction |
 | `signer_review()` | 0 on success, otherwise one of the errors below |
 | `signer_display()` | 0 on success |
+| `signer_facts()` | 0 on success, `NO_SEED` without a seed |
 | `signer_sign()` | the number of signatures, or the negated error |
 | `signer_message_review(len, purpose, account, chain, index)` | 0 on success. The message in the input buffer (at most 512 bytes) and the key at m/purpose'/coin'/account'/chain/index, `purpose` 49 or 84; see below |
 | `signer_message_sign()` | 0 on success, `NOT_REVIEWED` unless it is the message and key the last review showed |
@@ -112,6 +114,22 @@ review fails the hash, and a plan swapped in before it is the plan that gets dis
 | `signer_account_cbor(account)` | the length of a crypto-account in `signer_cbor_output()`, or the negated error |
 | `signer_multisig_cbor()` | the length of the registered multisig's crypto-output, or `-WALLET` when there is none |
 | `signer_unload()` | nothing. Zeroes the key, the plan, the signatures and the display |
+
+## Facts for a second review
+
+`signer_facts()` answers, for the plan in `signer_plan()`, what only the seed and the registered multisig
+can: whether each key re-derives to its script, and whether the wallet makes it. A review written
+elsewhere, from the same plan and previous transactions, can then decide everything else itself, and a
+host can refuse when the two disagree. It changes no state and approves nothing.
+
+`core_facts_t` is the master fingerprint (u32), `testnet` and `wallet` (1 when a multisig is registered),
+then a byte per input and per output, 16 each, zero past the plan's counts or for a malformed key path:
+
+| bit | input | output |
+|---|---|---|
+| 1 | the key re-derives to the script, with the input's witness script | the key re-derives to the script |
+| 2 | the wallet makes that witness script at that path | the wallet's keys at that path hash to the script, receive chain |
+| 4 | | the same, change chain |
 
 ## Finding our addresses
 

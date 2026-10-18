@@ -3,6 +3,13 @@ export namespace OWNER {
     let CHANGE: number;
     let SELF: number;
 }
+export namespace FACT {
+    export let OURS: number;
+    export let IN_WALLET: number;
+    export let RECEIVE: number;
+    let CHANGE_1: number;
+    export { CHANGE_1 as CHANGE };
+}
 export namespace TEXT_KIND {
     let ADDRESS: number;
     let OP_RETURN: number;
@@ -44,6 +51,14 @@ export class Signer {
             owner: number;
             willSign: number;
             nSign: number;
+        };
+        facts: {
+            size: number;
+            fingerprint: number;
+            testnet: number;
+            wallet: number;
+            input: number;
+            output: number;
         };
         display: {
             size: number;
@@ -164,6 +179,16 @@ export class Signer {
         owner: number[];
         willSign: number[];
     };
+    /** What only the seed and the registered wallet know about the plan set last, for a review written
+     *  elsewhere to decide from. Each byte is FACT bits; `bytes` is the struct as the module laid it out. */
+    facts(): {
+        fingerprint: number;
+        testnet: boolean;
+        wallet: boolean;
+        input: number[];
+        output: number[];
+        bytes: Uint8Array<ArrayBuffer>;
+    };
     /** What to put in front of the person approving. Every string here was built inside the module
      *  from the plan's bytes, so it cannot be a string the PSBT chose. */
     display(): {
@@ -279,6 +304,7 @@ export type SignerExports = {
     signer_prevtx: () => number;
     signer_review_output: () => number;
     signer_display_output: () => number;
+    signer_facts_output: () => number;
     signer_sigs: () => number;
     signer_nonces: () => number;
     signer_nonce_points: () => number;
@@ -293,6 +319,7 @@ export type SignerExports = {
     signer_set_prevtx: (i: number, off: number, len: number) => number;
     signer_review: () => number;
     signer_display: () => number;
+    signer_facts: () => number;
     signer_sign: () => number;
     signer_xpub: (purpose: number, account: number) => number;
     signer_find_address: (len: number, account: number, count: number) => number;

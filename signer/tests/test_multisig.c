@@ -55,6 +55,10 @@ int main(void) {
     CHECK(core_multisig_cbor(cbor, sizeof(cbor)) == -CORE_ERR_WALLET, "no wallet, no crypto-output");
     CHECK(load(DESC) == CORE_OK, "a descriptor");
     CHECK(ms.threshold == 2 && ms.n == 3 && ms.ours == 0, "2 of 3, ours first");
+    {
+        core_facts_t f;
+        CHECK(core_facts(&(plan_t){0}, &f) == CORE_OK && f.wallet, "facts say a wallet is registered");
+    }
     CHECK(ms.fingerprints[1] == 0x3f635a63 && ms.fingerprints[2] == 0xb8688df1, "the cosigners' fingerprints");
     CHECK(!strcmp(ms.receive, RECEIVE0), "the first receive address is Core's: %s", ms.receive);
     CHECK(!strcmp(ms.descriptor, DESC "#" CHECKSUM), "the descriptor with Core's checksum: %s", ms.descriptor);
