@@ -128,6 +128,7 @@ which-parser: build/parser.wasm
 	else echo "build/parser.wasm matches neither; rebuild it ($$h)"; exit 1; fi
 .PHONY: which-parser
 
+# The one-caller limit keeps wasm-opt from inlining every function with one caller, NOINLINE ones in core.c included
 build/signer.wasm: $(SIGNER_SRC) signer/*.h parser/c/include/*.h | check-deps
 	mkdir -p build
 	$(LLVM)/clang --target=wasm32-wasip1 --sysroot=$(WASI) -nostartfiles -nodefaultlibs \
@@ -138,7 +139,7 @@ build/signer.wasm: $(SIGNER_SRC) signer/*.h parser/c/include/*.h | check-deps
 	  -Wl,--initial-memory=196608 -Wl,--no-growable-memory \
 	  --no-wasm-opt -Wl,--keep-section=target_features \
 	  -o $@ $(SIGNER_SRC) -lc $(RTLIB)/libclang_rt.builtins.a
-	$(WASM_OPT) $@ -Oz -o $@
+	$(WASM_OPT) $@ -Oz --one-caller-inline-max-function-size=0 -o $@
 	@shasum -a 256 $@
 
 # The structure offsets in the specs and in every host library, against what C says they are. A
