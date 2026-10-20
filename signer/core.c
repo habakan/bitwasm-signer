@@ -17,6 +17,8 @@
 #define H 0x80000000u
 #define MAX_MONEY 2100000000000000ull
 #define MAX_ADDRESS_INDEX 100000 /* highest index we will call ours; anything beyond shows as external */
+/* Kept out of their callers so that each check is its own function in signer.wasm */
+#define NOINLINE __attribute__((noinline))
 
 static uint8_t ctx_mem[256] __attribute__((aligned(16)));
 static secp256k1_context *ctx;
@@ -122,7 +124,7 @@ static int keypath_ok(const plan_keypath_t *k) {
     return 1;
 }
 
-static int format_ok(const plan_t *p) {
+static NOINLINE int format_ok(const plan_t *p) {
     if (p->magic != PLAN_MAGIC || p->version != PLAN_VERSION) return 0;
     if (p->n_inputs == 0 || p->n_inputs > PLAN_MAX_INPUTS || p->n_outputs == 0 || p->n_outputs > PLAN_MAX_OUTPUTS)
         return 0;
@@ -170,7 +172,7 @@ static int on_prev_output(void *c, uint32_t index, uint64_t amount, const uint8_
     return 1;
 }
 
-static int prevtx_ok(const plan_input_t *in, const core_prevtx_t *prev) {
+static NOINLINE int prevtx_ok(const plan_input_t *in, const core_prevtx_t *prev) {
     prevout_match_t m = {in->prev_vout, 0, in->amount, &in->spk};
     tx_visitor_t v = {NULL, on_prev_output, &m};
     tx_info_t info;
@@ -196,7 +198,7 @@ static int in_wallet(const plan_keypath_t *k, const plan_wscript_t *ws) {
 
 /* A P2WSH output is change only with a registered wallet, when we sign one of its inputs, and when the wallet's
  * keys at that path hash to the output's script */
-static int wallet_owner(const plan_t *p, const core_review_t *r, const plan_output_t *o) {
+static NOINLINE int wallet_owner(const plan_t *p, const core_review_t *r, const plan_output_t *o) {
     uint8_t h[32];
     if (wallet_ours < 0 || !in_wallet_at(&o->key, NULL, h) || memcmp(h, o->spk.bytes + 2, 32)) return CORE_OUT_EXTERNAL;
     for (unsigned int i = 0; i < p->n_inputs; i++)
@@ -207,7 +209,7 @@ static int wallet_owner(const plan_t *p, const core_review_t *r, const plan_outp
 
 /* An output counts as ours only on the receive (0) or change (1) chain of the same account as the
  * inputs we sign, and only when the re-derived key produces that exact script */
-static int output_owner(const plan_t *p, const core_review_t *r, const plan_output_t *o) {
+static NOINLINE int output_owner(const plan_t *p, const core_review_t *r, const plan_output_t *o) {
     const plan_keypath_t *k = &o->key;
     int type = spk_type(&o->spk);
     bip32_node_t node;
