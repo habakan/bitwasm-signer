@@ -258,6 +258,8 @@ do {
     check("the generated words load", try g.seedFromMnemonic(&mn, passphrase: &none).fingerprint.count, 8)
     var rolls = [UInt8](String(repeating: "1", count: 50).utf8)
     check("50 dice rolls", String(decoding: try g.mnemonicFromDice(&rolls, words: 12), as: UTF8.self), "diet glad hat rural panther lawsuit act drop gallery urge where fit")
+    check("fair rolls pass the dice check", try g.diceCheck([UInt8]("32461151351521144121541512665155412152342515356215".utf8), words: 12), 1)
+    check("a cycle of faces is a pattern", try g.diceCheck([UInt8]((String(repeating: "123456", count: 8) + "12").utf8), words: 12), 5)
     do {
         var short = [UInt8](String(repeating: "1", count: 98).utf8)
         _ = try g.mnemonicFromDice(&short)

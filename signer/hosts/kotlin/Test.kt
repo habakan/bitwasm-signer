@@ -219,6 +219,8 @@ fun main(args: Array<String>) {
         ok("the entropy passed in is zeroed", ent.all { it == 0.toByte() })
         check("the generated words load", g.seedFromMnemonic(mn).fingerprint.length, 8)
         check("50 dice rolls", String(g.mnemonicFromDice("1".repeat(50).toByteArray(), 12)), "diet glad hat rural panther lawsuit act drop gallery urge where fit")
+        check("fair rolls pass the dice check", g.diceCheck("32461151351521144121541512665155412152342515356215".toByteArray(), 12), 1)
+        check("a cycle of faces is a pattern", g.diceCheck(("123456".repeat(8) + "12").toByteArray(), 12), 5)
         try {
             g.mnemonicFromDice("1".repeat(98).toByteArray())
             ok("98 rolls for 24 words are refused", false)

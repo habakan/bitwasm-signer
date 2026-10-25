@@ -275,13 +275,22 @@ public final class Signer {
         }
     }
 
-    /// A new mnemonic from dice rolls, the characters 1 to 6: at least 50 for 12 words, 99 for 24.
+    /// A new mnemonic from dice rolls, the characters 1 to 6: exactly 50 for 12 words and 99 for 24.
     public func mnemonicFromDice(_ rolls: inout [UInt8], words: UInt32 = 24) throws -> [UInt8] {
         guard words == 12 || words == 24 else { throw SignerError.invalidInput("dice make 12 or 24 words, not \(words)") }
         let n = UInt32(rolls.count)
         return try generate(&rolls, "mnemonic_from_dice", "signer_mnemonic_output") {
             try self.call("signer_mnemonic_from_dice", [.i32(n), .i32(words)])
         }
+    }
+
+    /// The rolls checked before `mnemonicFromDice`: 0 unless they are the right count of 1 to 6, else 1,
+    /// plus 2 when the faces are uneven and 4 when the steps between rolls are. The rolls are kept.
+    public func diceCheck(_ rolls: [UInt8], words: UInt32 = 24) throws -> Int32 {
+        let cap = inputCapacity
+        guard rolls.count <= cap else { throw SignerError.tooLarge(size: rolls.count, capacity: cap) }
+        try write(rolls, at: Int(try call("signer_input")))
+        return try call("signer_dice_check", [.i32(UInt32(rolls.count)), .i32(words)])
     }
 
     /// The SeedQR of a 12 or 24 word mnemonic, to show as a backup: the Standard digits as ASCII (QR

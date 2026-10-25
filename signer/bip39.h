@@ -46,9 +46,16 @@ size_t bip39_normalize(const uint8_t *in, size_t len, uint8_t *out);
  * length, or 0 for another length or too small a buffer */
 int bip39_mnemonic_from_entropy(const uint8_t *ent, size_t len, char *out, size_t cap);
 
-/* Dice rolls as the characters 1 to 6, at least 50 for 12 words (129 bits) and 99 for 24 (255.9 bits, the
- * usual count). The entropy is SHA-256 of the rolls, cut to 16 bytes for 12 words */
+/* Dice rolls as the characters 1 to 6, exactly 50 for 12 words (129 bits) and 99 for 24 (255.9 bits), as
+ * SeedSigner and Krux count them. The entropy is SHA-256 of the rolls, cut to 16 bytes for 12 words */
 int bip39_mnemonic_from_dice(const uint8_t *rolls, size_t len, unsigned int words, char *out, size_t cap);
+
+/* The rolls checked before the words are made: 0 unless the right count of 1 to 6, else DICE_OK, with
+ * BIASED for uneven faces and PATTERN for uneven steps between rolls (chi-squared, p = 0.001 each) */
+#define DICE_OK 1
+#define DICE_BIASED 2
+#define DICE_PATTERN 4
+int bip39_dice_check(const uint8_t *rolls, size_t len, unsigned int words);
 
 /* For seedqr.c, on word indices. bip39_mnemonic_indices returns how many words a valid mnemonic has (0
  * if it is not one); the entropy functions convert 11-bit indices to and from entropy, with its checksum */
