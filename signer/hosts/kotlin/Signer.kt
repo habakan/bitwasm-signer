@@ -213,12 +213,22 @@ class Signer(signerWasm: ByteArray, sha256: String) {
             call("signer_mnemonic_from_entropy", entropy.size.toLong())
         })
 
-    /** A new mnemonic from dice rolls, the characters 1 to 6: at least 50 for 12 words, 99 for 24. */
+    /** A new mnemonic from dice rolls, the characters 1 to 6: exactly 50 for 12 words and 99 for 24. */
     fun mnemonicFromDice(rolls: ByteArray, words: Int = 24): CharArray {
         require(words == 12 || words == 24) { "dice make 12 or 24 words, not $words" }
         return chars(generate(rolls, "mnemonic_from_dice", "signer_mnemonic_output") {
             call("signer_mnemonic_from_dice", rolls.size.toLong(), words.toLong())
         })
+    }
+
+    /**
+     * The rolls checked before [mnemonicFromDice]: 0 unless they are the right count of 1 to 6, else 1,
+     * plus 2 when the faces are uneven and 4 when the steps between rolls are. The rolls are kept.
+     */
+    fun diceCheck(rolls: ByteArray, words: Int = 24): Int {
+        require(rolls.size <= inputCapacity) { "${rolls.size} bytes of rolls does not fit in $inputCapacity" }
+        memory.write(call("signer_input"), rolls)
+        return call("signer_dice_check", rolls.size.toLong(), words.toLong())
     }
 
     /**

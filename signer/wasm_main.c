@@ -248,6 +248,13 @@ int EXPORT(signer_mnemonic_from_dice)(unsigned int len, unsigned int words) {
     return n;
 }
 
+/* The dice rolls in in, checked before signer_mnemonic_from_dice: see bip39_dice_check */
+int EXPORT(signer_dice_check)(unsigned int len, unsigned int words) {
+    int r = len <= sizeof(in) ? bip39_dice_check(in, len, words) : 0;
+    wipe(in, sizeof(in));
+    return r;
+}
+
 /* The SeedQR for the mnemonic in in, to show as a backup: the Standard digits, or the CompactSeedQR's
  * bytes. Returns its length in signer_seedqr_output(), or 0 */
 int EXPORT(signer_seedqr_from_mnemonic)(unsigned int mn_len, int compact) {

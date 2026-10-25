@@ -540,6 +540,11 @@ for (const tamper of [false, true]) {
   } catch (e) {
     ok("dice rolls as a string are refused for what they are", e instanceof TypeError && /Uint8Array/.test(e.message));
   }
+  const fair = enc("32461151351521144121541512665155412152342515356215");
+  check("fair rolls pass the dice check", G.diceCheck(fair, 12), 1);
+  ok("and the rolls checked are kept", fair[0] === 0x33);
+  check("a cycle of faces is a pattern", G.diceCheck(enc("123456".repeat(8) + "12"), 12), 5);
+  check("51 rolls for 12 words are refused", G.diceCheck(enc("1".repeat(51)), 12), 0);
   const kept = enc("1".repeat(99));
   try {
     G.mnemonicFromDice(kept, /** @type {any} */ (18));

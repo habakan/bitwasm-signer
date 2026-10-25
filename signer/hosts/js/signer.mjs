@@ -53,6 +53,7 @@ const L = {
  *   signer_mnemonic_output: () => number,
  *   signer_mnemonic_from_entropy: (len: number) => number,
  *   signer_mnemonic_from_dice: (len: number, words: number) => number,
+ *   signer_dice_check: (len: number, words: number) => number,
  *   signer_seedqr_output: () => number,
  *   signer_seedqr_from_mnemonic: (mnLen: number, compact: number) => number,
  *   signer_bip85_mnemonic: (words: number, index: number) => number,
@@ -239,7 +240,7 @@ export class Signer {
                           () => this.#e.signer_mnemonic_output());
   }
 
-  /** A new mnemonic from dice rolls, the characters 1 to 6: at least 50 for 12 words, 99 for 24. The
+  /** A new mnemonic from dice rolls, the characters 1 to 6: exactly 50 for 12 words and 99 for 24. The
    *  entropy is SHA-256 of the rolls. `rolls` is zeroed. */
   /**
    * @param {Uint8Array} rolls
@@ -249,6 +250,19 @@ export class Signer {
     if (words !== 12 && words !== 24) throw new RangeError(`dice make 12 or 24 words, not ${words}`);
     return this.#generate(rolls, () => this.#e.signer_mnemonic_from_dice(rolls.length, words), "mnemonic_from_dice",
                           () => this.#e.signer_mnemonic_output());
+  }
+
+  /** The rolls checked before `mnemonicFromDice`: 0 unless they are the right count of 1 to 6, else
+   *  1, plus 2 when the faces are uneven and 4 when the steps between rolls are. `rolls` is kept. */
+  /**
+   * @param {Uint8Array} rolls
+   * @param {12 | 24} [words]
+   */
+  diceCheck(rolls, words = 24) {
+    const cap = this.#e.signer_input_cap();
+    if (rolls.length > cap) throw new RangeError(`${rolls.length} bytes, cap is ${cap}`);
+    this.#mem.set(rolls, this.#e.signer_input());
+    return this.#e.signer_dice_check(rolls.length, words);
   }
 
   /** The SeedQR of a 12 or 24 word mnemonic, to show as a backup: the Standard digits as ASCII (QR

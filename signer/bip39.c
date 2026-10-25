@@ -226,12 +226,43 @@ int bip39_mnemonic_from_entropy(const uint8_t *ent, size_t len, char *out, size_
     return r;
 }
 
+static int dice_rolls_ok(const uint8_t *rolls, size_t len, unsigned int words) {
+    if ((words != 12 || len != 50) && (words != 24 || len != 99)) return 0;
+    for (size_t i = 0; i < len; i++)
+        if (rolls[i] < '1' || rolls[i] > '6') return 0;
+    return 1;
+}
+
+/* Chi-squared with 5 degrees of freedom over six counts of n, against 20.515 (p = 0.001), in integers:
+ * the sum of (6c - n)^2 / 6n against 20.515 */
+static int dice_uneven(const unsigned int count[6], unsigned int n) {
+    uint64_t sum = 0;
+    for (unsigned int f = 0; f < 6; f++) {
+        int64_t d = 6 * (int64_t)count[f] - n;
+        sum += (uint64_t)(d * d);
+    }
+    return sum * 1000 > (uint64_t)20515 * 6 * n;
+}
+
+int bip39_dice_check(const uint8_t *rolls, size_t len, unsigned int words) {
+    unsigned int faces[6] = {0}, steps[6] = {0};
+    int r;
+    if (!dice_rolls_ok(rolls, len, words)) return 0;
+    for (size_t i = 0; i < len; i++) {
+        faces[rolls[i] - '1']++;
+        if (i) steps[(rolls[i] - rolls[i - 1] + 6) % 6]++;
+    }
+    r = DICE_OK | (dice_uneven(faces, (unsigned int)len) ? DICE_BIASED : 0) |
+        (dice_uneven(steps, (unsigned int)len - 1) ? DICE_PATTERN : 0);
+    wipe(faces, sizeof(faces));
+    wipe(steps, sizeof(steps));
+    return r;
+}
+
 int bip39_mnemonic_from_dice(const uint8_t *rolls, size_t len, unsigned int words, char *out, size_t cap) {
     uint8_t hash[32];
     int r;
-    if ((words != 12 || len < 50) && (words != 24 || len < 99)) return 0;
-    for (size_t i = 0; i < len; i++)
-        if (rolls[i] < '1' || rolls[i] > '6') return 0;
+    if (!dice_rolls_ok(rolls, len, words)) return 0;
     sha256_of(rolls, len, hash);
     r = bip39_mnemonic_from_entropy(hash, words == 12 ? 16 : 32, out, cap);
     wipe(hash, sizeof(hash));

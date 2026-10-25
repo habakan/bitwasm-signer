@@ -236,13 +236,38 @@ int main(void) {
         CHECK(!bip39_mnemonic_from_dice((const uint8_t *)rolls, 98, 24, out, sizeof(out)), "98 rolls for 24 refused");
         CHECK(bip39_mnemonic_from_dice((const uint8_t *)rolls, 50, 12, out, sizeof(out)) > 0, "50 rolls, 12 words");
         CHECK(!bip39_mnemonic_from_dice((const uint8_t *)rolls, 49, 12, out, sizeof(out)), "49 rolls for 12 refused");
+        CHECK(!bip39_mnemonic_from_dice((const uint8_t *)rolls, 51, 12, out, sizeof(out)), "51 rolls for 12 refused");
         CHECK(!bip39_mnemonic_from_dice((const uint8_t *)rolls, 99, 18, out, sizeof(out)), "18 words refused");
-        CHECK(!bip39_mnemonic_from_dice((const uint8_t *)"0234561234561234561234561234561234561234561234561234", 52, 12,
+        CHECK(!bip39_mnemonic_from_dice((const uint8_t *)"02345612345612345612345612345612345612345612345612", 50, 12,
                                         out, sizeof(out)),
               "a 0 refused");
-        CHECK(!bip39_mnemonic_from_dice((const uint8_t *)"7234561234561234561234561234561234561234561234561234", 52, 12,
+        CHECK(!bip39_mnemonic_from_dice((const uint8_t *)"72345612345612345612345612345612345612345612345612", 50, 12,
                                         out, sizeof(out)),
               "a 7 refused");
+    }
+
+    /* checking the rolls: the count and faces as above, then a fair die passes and an uneven one is flagged */
+    {
+        static const char fair12[] = "32461151351521144121541512665155412152342515356215";
+        static const char fair24[] =
+            "5623156151524654345433226215354364351154232441615533635454113466116636564364631432514123262"
+            "44412445";
+        static const char ones[] = "11111111111111111111111111111111111111111111111111";
+        static const char halves[] = "11111111111111111111111112222222222222222222222222";
+        static const char cycle[] = "12345612345612345612345612345612345612345612345612";
+        CHECK(sizeof(fair12) - 1 == 50 && sizeof(fair24) - 1 == 99, "50 and 99 rolls");
+        CHECK(bip39_dice_check((const uint8_t *)fair12, 50, 12) == DICE_OK, "fair rolls for 12 words pass");
+        CHECK(bip39_dice_check((const uint8_t *)fair24, 99, 24) == DICE_OK, "fair rolls for 24 words pass");
+        CHECK(bip39_dice_check((const uint8_t *)ones, 50, 12) == (DICE_OK | DICE_BIASED | DICE_PATTERN),
+              "one face every time is both");
+        CHECK(bip39_dice_check((const uint8_t *)halves, 50, 12) == (DICE_OK | DICE_BIASED | DICE_PATTERN),
+              "two faces in two runs is both");
+        CHECK(bip39_dice_check((const uint8_t *)cycle, 50, 12) == (DICE_OK | DICE_PATTERN),
+              "even faces in a cycle is a pattern");
+        CHECK(!bip39_dice_check((const uint8_t *)fair12, 49, 12), "49 rolls refused");
+        CHECK(!bip39_dice_check((const uint8_t *)fair24, 99, 12), "99 rolls for 12 words refused");
+        CHECK(!bip39_dice_check((const uint8_t *)"02345612345612345612345612345612345612345612345612", 50, 12),
+              "a 0 refused");
     }
 
     printf("%d/%d checks passed\n", checks - failures, checks);

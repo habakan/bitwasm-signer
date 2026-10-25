@@ -170,6 +170,12 @@ class Signer:
         return self._generate(rolls, lambda: self._e.signer_mnemonic_from_dice(len(rolls), words),
                               "mnemonic_from_dice", self._e.signer_mnemonic_output)
 
+    def dice_check(self, rolls: bytes, words=24) -> int:
+        """0 unless the rolls are the right count of 1 to 6, else 1, plus 2 for uneven faces and 4 for
+        uneven steps between rolls. The rolls are kept."""
+        self._input(rolls)
+        return self._e.signer_dice_check(len(rolls), words)
+
     def seedqr_from_mnemonic(self, mnemonic: bytearray, compact=False) -> bytearray:
         return self._generate(mnemonic, lambda: self._e.signer_seedqr_from_mnemonic(len(mnemonic), int(compact)),
                               "seedqr_from_mnemonic", self._e.signer_seedqr_output)
