@@ -19,6 +19,7 @@ parser/
   tests/       vectors, the UR reference values, fuzzing
   BENCHMARK.md what the two cost, and why the device takes the C
 signer/        signer.wasm: sources, its ABI, three host libraries, golden signatures
+qr/            qr.wasm: reading QR codes from pixels, in Rust, tested against an independent encoder
 docs/
   module-abi.md   the convention both modules follow, and what a host must do
 tools/         checking the shape of the output, the layout, and fetching the pinned toolchain

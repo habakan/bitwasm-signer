@@ -71,6 +71,7 @@ by accident is how a module starts offering more than it documents.
 |---|---|---|---|---|
 | `parser.wasm` | `parser_` | UR reassembly, PSBT parsing, building the Plan, taking signatures back, UR encoding | [abi.md](../parser/docs/abi.md) | JS, Kotlin, Swift |
 | `signer.wasm` | `signer_` | keys, derivation, re-checking a Plan, the display model, signing, xpub export | [abi.md](../signer/docs/abi.md) | JS, Kotlin, Swift |
+| `qr.wasm` | `qr_` | reading a QR code from greyscale pixels | [README.md](../qr/README.md) | none yet |
 
 **`parser.wasm` is finished as a part**: a specification, three host libraries, 529 vectors,
 fuzzing, its own CI and a signed release. **`signer.wasm` now matches it** — a specification, host

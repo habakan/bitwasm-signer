@@ -290,6 +290,34 @@ check-rust-shape: build/parser-rs.wasm
 check-rust: check-rust-plan check-rust-suite check-rust-shape
 .PHONY: check-rust
 
+# --- qr.wasm: QR codes from greyscale pixels, written from the spec in Rust ---
+#
+# Tested against symbols from an encoder it shares no code with (Nayuki's QR-Code-generator, pinned
+# below): its tables, its grids decoded directly, and the grids drawn turned, tilted, blurred and noisy.
+QRGEN     := third_party/QR-Code-generator
+QRGEN_REV := 3c6d0b3cefb4e049dc337e82237c9644399716a8
+QR_WASM   := qr/target/wasm32-unknown-unknown/release/bitwasm_signer_qr.wasm
+
+qr-deps:
+	mkdir -p third_party
+	git clone --filter=blob:none https://github.com/nayuki/QR-Code-generator.git $(QRGEN)
+	cd $(QRGEN) && git checkout --detach $(QRGEN_REV)
+.PHONY: qr-deps
+
+$(QR_WASM): $(wildcard qr/src/*.rs) qr/Cargo.toml
+	cd qr && rustup run $(RUST_TOOLCHAIN) cargo build --release --target wasm32-unknown-unknown
+
+build/qr.wasm: $(QR_WASM)
+	@mkdir -p build
+	$(WASM_OPT) $< -Oz --strip-debug --strip-producers $(RS_FEATURES) -o $@
+	@shasum -a 256 $@
+
+check-qr: build/qr.wasm
+	python3 qr/tests/gen_vectors.py $(QRGEN)/python build/qr
+	cd qr && rustup run $(RUST_TOOLCHAIN) cargo test --release
+	python3 tools/check_wasm.py build/qr.wasm
+.PHONY: check-qr
+
 # The host libraries ship as plain .mjs that anyone can read and import with no build step. This
 # type-checks them in place and regenerates the .d.mts beside them, failing if the committed ones are
 # stale — so a TypeScript consumer gets types without this repository shipping a build artifact as
