@@ -1,0 +1,21 @@
+[package]
+name = "bitwasm-signer-qr"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+description = "QR code reading from greyscale pixels as a WebAssembly module with no imports"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+# No dependencies, as in the parser: what reads a SeedQR should be small enough to read in full.
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+codegen-units = 1
+strip = true
+overflow-checks = true   # the pixels are attacker-controlled

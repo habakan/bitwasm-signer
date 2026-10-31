@@ -18,6 +18,7 @@ parser/
   tests/       ベクタ、UR の参照値、ファジング
   BENCHMARK.md 両者の代償と、実機が C を取る理由
 signer/        signer.wasm: ソース、ABI、3つのホストライブラリ、golden 署名
+qr/            qr.wasm: 画素から QR を読む。Rust で書き、別の作者のエンコーダーと照合している
 docs/
   module-abi.md   両モジュールが従う規約と、ホストがやるべきこと
 tools/         出力の形とレイアウトの検査、バージョンを固定したツールチェーンの取得

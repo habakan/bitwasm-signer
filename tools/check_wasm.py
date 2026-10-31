@@ -30,6 +30,8 @@ BASE_FEATURES = "-all,floats,saturating-float-to-int,bulk-memory-opt,-mutable-gl
 EXTRA_FEATURES = {
     # The signer needs sign-extension, which comes in with secp256k1
     "signer.wasm": ",sign-extension",
+    # rustc emits sign-extension for the QR reader's integer casts
+    "qr.wasm": ",sign-extension",
 }
 
 

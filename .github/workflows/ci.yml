@@ -96,6 +96,11 @@ jobs:
           rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
           make check-rust WASM_OPT=/tmp/binaryen-version_132/bin/wasm-opt
 
+      - name: qr.wasm reads every version and level from an independent encoder, turned, tilted and noisy
+        run: |
+          make qr-deps
+          make check-qr WASM_OPT=/tmp/binaryen-version_132/bin/wasm-opt
+
       - name: Both modules under WAMR's classic interpreter, the signer agreeing with V8
         run: |
           make wamr-deps
