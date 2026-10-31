@@ -12,6 +12,12 @@ path = "src/lib.rs"
 
 # No dependencies, as in the parser: what reads a SeedQR should be small enough to read in full.
 
+[features]
+default = ["module"]
+# qr.wasm itself: the exports, their buffers and the panic handler. Leave it off to link the reader
+# into another crate
+module = []
+
 [profile.release]
 opt-level = "z"
 lto = true
