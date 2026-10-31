@@ -3,10 +3,11 @@
 //! Zero imports, no allocator, no unwinding, like the parser and signer: the host writes pixels into
 //! the buffer this module exports and reads the decoded bytes back. Nothing here depends on another
 //! QR library; the tests compare against one written by someone else.
-// std only on the host, where the tests build this crate as a library
-#![cfg_attr(target_arch = "wasm32", no_std)]
+// Built as qr.wasm (the `module` feature, on by default), it is no_std with its own panic handler and
+// exports. Without the feature it is a plain library, for another wasm crate to link in
+#![cfg_attr(all(target_arch = "wasm32", feature = "module"), no_std)]
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "module"))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
     core::arch::wasm32::unreachable()
@@ -18,7 +19,7 @@ pub mod gf;
 pub mod scan;
 pub mod tables;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "module"))]
 mod exports;
 
 /// The largest frame accepted: 1280x720 either way up, as large as a camera preview needs to be
